@@ -17,7 +17,6 @@ service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Uses OpenAI-compatible API (Ollama, OpenAI, LM Studio, etc.). Configure via .env file."""
     global service
     print("🚀 Starting AI Transcript App...")
 
@@ -86,6 +85,7 @@ async def transcribe_audio(audio: UploadFile = File(...)):
 
 @app.post("/api/clean")
 async def clean_text(request: CleanRequest):
+    """Simple cleaning endpoint - uses a single LLM call with a fixed prompt."""
     if not service:
         raise HTTPException(status_code=503, detail="Service not ready")
 
@@ -96,3 +96,22 @@ async def clean_text(request: CleanRequest):
     except Exception as e:
         print(f"❌ LLM cleaning error: {e}")
         raise HTTPException(status_code=500, detail=f"Cleaning failed: {str(e)}")
+
+
+class AgentRequest(BaseModel):
+    text: str
+
+
+@app.post("/api/process-agent")
+async def process_with_agent(request: AgentRequest):
+    """Agentic processing endpoint - agent autonomously selects and executes tools."""
+    if not service:
+        raise HTTPException(status_code=503, detail="Service not ready")
+
+    try:
+        result = service.process_with_agent(request.text)
+        return {"success": True, **result}
+
+    except Exception as e:
+        print(f"❌ Agentic processing error: {e}")
+        raise HTTPException(status_code=500, detail=f"Agent processing failed: {str(e)}")

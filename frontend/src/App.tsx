@@ -6,6 +6,7 @@ import { UploadZone } from './components/UploadZone';
 import { TextInputZone } from './components/TextInputZone';
 import { SettingsPanel } from './components/SettingsPanel';
 import { TranscriptionResults } from './components/TranscriptionResults';
+import { AgentResults } from './components/AgentResults';
 import { ErrorMessage } from './components/ErrorMessage';
 
 interface TranscriptionResponse {
@@ -14,13 +15,30 @@ interface TranscriptionResponse {
   error?: string;
 }
 
-interface CleanResponse {
-  success: boolean;
-  text?: string;
-}
-
 interface SystemPromptResponse {
   default_prompt: string;
+}
+
+interface ToolCall {
+  name: string;
+  input: Record<string, unknown>;
+}
+
+interface ToolResult {
+  status: string;
+  type?: string;
+  file_path?: string;
+  filename?: string;
+  data?: Record<string, unknown>;
+  message?: string;
+}
+
+interface AgentResponse {
+  success: boolean;
+  tool_calls?: ToolCall[];
+  results?: ToolResult[];
+  summary?: string;
+  error?: string;
 }
 
 function App() {
@@ -29,12 +47,15 @@ function App() {
   const [rawText, setRawText] = useState<string | null>(null);
   const [cleanedText, setCleanedText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [useLLM, setUseLLM] = useState(true);
+  const [useLLM, setUseLLM] = useState(false); // Default false - agent is separate now
+  const [useAgent, setUseAgent] = useState(true); // New: toggle for agent processing
   const [isCopied, setIsCopied] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [isLoadingPrompt, setIsLoadingPrompt] = useState(true);
   const [isDragging, setIsDragging] = useState(false);
   const [isCleaningWithLLM, setIsCleaningWithLLM] = useState(false);
+  const [isProcessingAgent, setIsProcessingAgent] = useState(false);
+  const [agentResults, setAgentResults] = useState<AgentResponse | null>(null);
   const [isOriginalExpanded, setIsOriginalExpanded] = useState(true);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -57,6 +78,36 @@ function App() {
     };
 
     void loadSystemPrompt();
+  }, []);
+
+  const processWithAgent = useCallback(async (text: string) => {
+    try {
+      setIsProcessingAgent(true);
+      setAgentResults(null);
+
+      const response = await fetch('/api/process-agent', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Agent processing failed: ${response.statusText}`);
+      }
+
+      const data = (await response.json()) as AgentResponse;
+      setAgentResults(data);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setAgentResults({
+        success: false,
+        error: errorMessage,
+      });
+    } finally {
+      setIsProcessingAgent(false);
+    }
   }, []);
 
   const uploadAudio = useCallback(async (audioBlob: Blob) => {
@@ -86,6 +137,12 @@ function App() {
       setIsProcessing(false);
       setError(null);
 
+      // Auto-process with agent if enabled
+      if (useAgent && transcribeData.text) {
+        void processWithAgent(transcribeData.text);
+      }
+
+      // Optional: Clean with simple LLM if enabled
       if (useLLM && transcribeData.text) {
         setIsCleaningWithLLM(true);
 
@@ -105,7 +162,7 @@ function App() {
           throw new Error(`Cleaning failed: ${cleanResponse.statusText}`);
         }
 
-        const cleanData = (await cleanResponse.json()) as CleanResponse;
+        const cleanData = (await cleanResponse.json()) as { success: boolean; text?: string };
 
         if (cleanData.success && cleanData.text) {
           setCleanedText(cleanData.text);
@@ -119,7 +176,7 @@ function App() {
       setError('Processing failed: ' + errorMessage);
       setIsProcessing(false);
     }
-  }, [useLLM, systemPrompt]);
+  }, [useLLM, useAgent, systemPrompt, processWithAgent]);
 
   const startRecording = useCallback(async () => {
     try {
@@ -144,6 +201,7 @@ function App() {
       setError(null);
       setRawText(null);
       setCleanedText(null);
+      setAgentResults(null);
       setIsCleaningWithLLM(false);
     } catch (err) {
       const errorMessage =
@@ -207,12 +265,19 @@ function App() {
       setError(null);
       setRawText(null);
       setCleanedText(null);
+      setAgentResults(null);
       setIsProcessing(true);
       setIsCleaningWithLLM(false);
 
       setRawText(text);
       setIsProcessing(false);
 
+      // Auto-process with agent if enabled
+      if (useAgent) {
+        void processWithAgent(text);
+      }
+
+      // Optional: Clean with simple LLM if enabled
       if (useLLM) {
         setIsCleaningWithLLM(true);
 
@@ -232,7 +297,7 @@ function App() {
           throw new Error(`Cleaning failed: ${cleanResponse.statusText}`);
         }
 
-        const cleanData = (await cleanResponse.json()) as CleanResponse;
+        const cleanData = (await cleanResponse.json()) as { success: boolean; text?: string };
 
         if (cleanData.success && cleanData.text) {
           setCleanedText(cleanData.text);
@@ -247,7 +312,7 @@ function App() {
       setIsProcessing(false);
       setIsCleaningWithLLM(false);
     }
-  }, [useLLM, systemPrompt]);
+  }, [useLLM, useAgent, systemPrompt, processWithAgent]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard
@@ -328,9 +393,11 @@ function App() {
 
         <SettingsPanel
           useLLM={useLLM}
+          useAgent={useAgent}
           systemPrompt={systemPrompt}
           isLoadingPrompt={isLoadingPrompt}
           onToggleLLM={setUseLLM}
+          onToggleAgent={setUseAgent}
           onPromptChange={setSystemPrompt}
         />
 
@@ -346,6 +413,14 @@ function App() {
           isOriginalExpanded={isOriginalExpanded}
           onCopy={copyToClipboard}
           onToggleOriginalExpanded={() => setIsOriginalExpanded(!isOriginalExpanded)}
+        />
+
+        <AgentResults
+          toolCalls={agentResults?.tool_calls}
+          results={agentResults?.results}
+          summary={agentResults?.summary}
+          error={agentResults?.error}
+          isProcessing={isProcessingAgent}
         />
       </div>
     </div>

@@ -1,0 +1,39 @@
+URGENT - Production Incident Response Call
+
+Sarah: Everyone, we have a critical production issue. Our payment processing is completely down. Customers can't complete purchases.
+
+Alex: I'm seeing errors in the logs. It looks like the payment gateway is returning 500 errors on all requests.
+
+Mike: How long has this been happening?
+
+Sarah: We started getting alerts about 15 minutes ago. This is affecting ALL transactions, so revenue is completely stopped.
+
+Jordan: I'm checking our dashboard - we've had about 200 failed payment attempts in the last 10 minutes. This is really bad.
+
+Alex: The payment gateway API is responding but rejecting all our requests. Looking at the error message... oh no, our API credentials expired today!
+
+Sarah: What?! How did we not know about this?
+
+Alex: There should have been renewal reminders but they might have gone to the old team email alias that no one monitors anymore.
+
+Sarah: Okay, we need to fix this immediately. Alex, can you regenerate new credentials?
+
+Alex: Yes, but I need approval from our payment provider first. Let me contact their emergency support line right now.
+
+Sarah: Do it. Mike, prepare a deployment with the new credentials as soon as Alex gets them. How quickly can you deploy?
+
+Mike: I can have a hotfix branch ready in 5 minutes. Once we have new credentials, I can deploy to production in under 10 minutes.
+
+Sarah: Good. Jordan, start drafting an incident report. We'll need to communicate this to leadership and potentially affected customers.
+
+Jordan: On it. Should I also check if we need to refund any failed transactions?
+
+Sarah: Yes, good thinking. Get a count of all failed payments in the last hour.
+
+Alex: I'm on hold with payment support now... Okay, they're expediting the credential renewal. Should have new keys in about 10 minutes.
+
+Sarah: The moment you get those keys, send them to Mike immediately. This is our top priority. Everything else stops until payments are working again.
+
+Everyone: Understood.
+
+Sarah: I'm notifying the CEO and VP of Engineering now. Stand by for updates.

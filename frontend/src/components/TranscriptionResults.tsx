@@ -20,8 +20,6 @@ export function TranscriptionResults({
     return null;
   }
 
-  const displayText = useLLM && cleanedText ? cleanedText : rawText;
-
   return (
     <div className={styles.container}>
       <Box
@@ -36,6 +34,9 @@ export function TranscriptionResults({
           variant="default"
           value={rawText || ''}
           isLoading={isProcessing && !rawText}
+          showCopyButton={!useLLM && !!rawText}
+          isCopied={isCopied}
+          onCopy={() => rawText && onCopy(rawText)}
           maxHeight="300px"
         />
       </Box>
@@ -54,19 +55,6 @@ export function TranscriptionResults({
             maxHeight="300px"
           />
         </Box>
-      )}
-
-      {/* Copy button for non-LLM case */}
-      {!useLLM && displayText && (
-        <TextBox
-          mode="display"
-          variant="default"
-          value={displayText}
-          showCopyButton={true}
-          isCopied={isCopied}
-          onCopy={() => onCopy(displayText)}
-          maxHeight="300px"
-        />
       )}
     </div>
   );

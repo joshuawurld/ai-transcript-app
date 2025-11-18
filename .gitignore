@@ -54,6 +54,10 @@ dist/
 frontend/node_modules/
 frontend/dist/
 
+# Generated files from tools
+backend/decision_records/
+backend/incident_reports/
+
 
 .claude
 tmp

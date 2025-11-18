@@ -12,12 +12,18 @@ AI-powered voice transcription with Whisper and LLM cleaning. Browser-based reco
 - 🤖 LLM cleaning (removes filler words, fixes errors)
 - 🔌 **OpenAI API-compatible** (works with Ollama, LM Studio, OpenAI, or any OpenAI-compatible API)
 - 📋 One-click copy to clipboard
+- 🛠️ **Agentic Workflow** (autonomous tool selection and execution)
+
+> **⚠️ Important Note for `checkpoint-agentic-openrouter` Branch:**
+> This branch includes advanced **agentic AI features** with autonomous tool calling (calendar generation, decision records, incident reports).
+> **Small local models struggle with reliable tool/function calling.** For best results, use a **strong cloud-based model** via [OpenRouter](https://openrouter.ai/) or another OpenAI-API compatible vendor. (see .env.example)
 
 Note that the vanilla version uses a smaller language model running on your CPU.
 This means the AI may not listen to system prompts that well depending on the transcript.
 The challenge for you is to change this portfolio app to advance the solution and make it your own.
 
 For example:
+
 - Modify it for a specific industry
 - Add GPU acceleration + stronger local LLM
 - Use a cloud AI model

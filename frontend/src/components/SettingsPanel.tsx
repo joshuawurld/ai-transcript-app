@@ -1,22 +1,52 @@
 import { Sparkles, ChevronDown, ChevronUp, Settings } from 'lucide-react';
 import styles from './SettingsPanel.module.css';
-import type { SettingsPanelProps } from '../types';
 import { useState } from 'react';
 import { TextBox } from './TextBox';
 import { Box } from './Box';
 
+interface Props {
+  useLLM: boolean;
+  useAgent: boolean;
+  systemPrompt: string;
+  isLoadingPrompt: boolean;
+  onToggleLLM: (value: boolean) => void;
+  onToggleAgent: (value: boolean) => void;
+  onPromptChange: (value: string) => void;
+}
+
 export function SettingsPanel({
   useLLM,
+  useAgent,
   systemPrompt,
   isLoadingPrompt,
   onToggleLLM,
+  onToggleAgent,
   onPromptChange,
-}: SettingsPanelProps) {
+}: Props) {
   const [isPromptExpanded, setIsPromptExpanded] = useState(false);
 
   return (
     <Box header="Settings" icon={Settings}>
-      {/* Main LLM Toggle - Always Visible */}
+      {/* Agent Processing Toggle */}
+      <div className={styles.toggleSection}>
+        <label className={styles.toggleLabel}>
+          <input
+            type="checkbox"
+            checked={useAgent}
+            onChange={(e) => onToggleAgent(e.target.checked)}
+            className={styles.checkbox}
+          />
+          <Sparkles className={styles.toggleIcon} />
+          <span className={styles.toggleText}>
+            Process with AI Agent
+          </span>
+        </label>
+        <p className={styles.description}>
+          Agent analyzes transcripts and creates calendar reminders with meeting summaries, action items, blockers, and urgent issues
+        </p>
+      </div>
+
+      {/* Simple LLM Cleaning Toggle */}
       <div className={styles.toggleSection}>
         <label className={styles.toggleLabel}>
           <input
@@ -25,13 +55,12 @@ export function SettingsPanel({
             onChange={(e) => onToggleLLM(e.target.checked)}
             className={styles.checkbox}
           />
-          <Sparkles className={styles.toggleIcon} />
           <span className={styles.toggleText}>
-            Clean transcription with LLM
+            Clean text with LLM (optional)
           </span>
         </label>
         <p className={styles.description}>
-          Use AI to clean up transcription (remove filler words, fix grammar)
+          Simple text cleaning: remove filler words, fix grammar
         </p>
       </div>
 

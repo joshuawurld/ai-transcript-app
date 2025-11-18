@@ -112,3 +112,137 @@ export const ACCEPTED_AUDIO_TYPES: AudioFileType[] = [
   'audio/ogg',
   'audio/x-m4a',
 ];
+
+// Agent & Tool Types
+export interface ToolCall {
+  name: string;
+  input: Record<string, unknown>;
+}
+
+export interface ToolResult {
+  status: string;
+  type?: string;
+  content?: string;
+  filename?: string;
+  markdown_content?: string;
+  data?: IncidentReportData | CalendarData | DecisionRecordData | Record<string, unknown>;
+  message?: string;
+}
+
+export interface AgentResponse {
+  tool_calls?: ToolCall[];
+  results?: ToolResult[];
+  summary?: string;
+  success: boolean;
+  error?: string;
+}
+
+export interface AgentResultsProps {
+  toolCalls?: ToolCall[];
+  results?: ToolResult[];
+  summary?: string;
+  error?: string;
+  isProcessing?: boolean;
+}
+
+// Calendar Tool Types
+export interface ActionItem {
+  task: string;
+  owner: string;
+  priority?: 'high' | 'medium' | 'low';
+  due_date?: string;
+}
+
+export interface Blocker {
+  blocker: string;
+  affected_person: string;
+}
+
+export interface UrgentIssue {
+  issue: string;
+  severity: 'critical' | 'high' | 'medium';
+}
+
+export interface CalendarData {
+  meeting_title: string;
+  meeting_type: string;
+  meeting_summary: string;
+  key_points: string[];
+  action_items: ActionItem[];
+  blockers?: Blocker[];
+  urgent_issues?: UrgentIssue[];
+  reminder_date: string;
+}
+
+// Incident Report Types
+export interface TimelineEvent {
+  time: string;
+  event: string;
+  actor?: string;
+}
+
+export interface BusinessImpact {
+  description?: string;
+  downtime_duration?: string;
+  affected_users?: string;
+  failed_transactions?: string;
+  revenue_impact?: string;
+}
+
+export interface FollowUpAction {
+  action: string;
+  owner: string;
+  priority?: 'high' | 'medium' | 'low';
+  due_date?: string;
+}
+
+export interface IncidentReportData {
+  incident_title: string;
+  severity: 'critical' | 'high' | 'medium' | 'low';
+  start_time: string;
+  detection_time?: string;
+  resolution_time?: string;
+  root_cause: string;
+  business_impact?: BusinessImpact;
+  timeline: TimelineEvent[];
+  resolution_steps: string[];
+  stakeholders_notified?: string[];
+  follow_up_actions?: FollowUpAction[];
+  additional_notes?: string;
+}
+
+export interface IncidentReportProps {
+  markdownContent: string;
+  data: IncidentReportData;
+}
+
+// Decision Record Types
+export interface DecisionOption {
+  option: string;
+  pros?: string[];
+  cons?: string[];
+}
+
+export interface DecisionConsequences {
+  positive?: string[];
+  negative?: string[];
+  risks?: string[];
+}
+
+export interface DecisionRecordData {
+  decision_title: string;
+  decision_date: string;
+  status: 'proposed' | 'accepted' | 'rejected' | 'deprecated' | 'superseded';
+  context: string;
+  options_considered: DecisionOption[];
+  decision: string;
+  rationale: string;
+  consequences?: DecisionConsequences;
+  decision_makers?: string[];
+  additional_notes?: string;
+}
+
+export interface DecisionRecordProps {
+  markdownContent: string;
+  data: DecisionRecordData;
+}

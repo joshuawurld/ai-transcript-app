@@ -37,6 +37,29 @@
   margin-bottom: 0;
 }
 
+.agenticInfo {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  background: rgba(91, 159, 245, 0.08);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--border-radius-sm);
+}
+
+.agenticText {
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0 0 var(--space-2) 0;
+  line-height: 1.5;
+}
+
+.agenticNote {
+  font-size: var(--font-size-xs);
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
+  font-style: italic;
+  line-height: 1.4;
+}
+
 .promptSection {
   border-top: 1px solid rgba(91, 159, 245, 0.15);
 }
