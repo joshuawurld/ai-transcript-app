@@ -1,19 +1,25 @@
+import os
+import tempfile
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from typing import Annotated
+
+from dotenv import load_dotenv
+from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from dotenv import load_dotenv
-import tempfile
-import os
+
 from transcription import TranscriptionService
 
 load_dotenv()
+
 
 class CleanRequest(BaseModel):
     text: str
     system_prompt: str | None = None
 
+
 service = None
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -25,10 +31,11 @@ async def lifespan(app: FastAPI):
         whisper_model=os.getenv("WHISPER_MODEL"),
         llm_base_url=os.getenv("LLM_BASE_URL"),
         llm_api_key=os.getenv("LLM_API_KEY"),
-        llm_model=os.getenv("LLM_MODEL")
+        llm_model=os.getenv("LLM_MODEL"),
     )
     print("✅ Ready!")
     yield
+
 
 app = FastAPI(title="AI Transcript App", lifespan=lifespan)
 
@@ -44,14 +51,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/api/status")
 async def get_status():
     return {
         "status": "ready" if service else "initializing",
         "whisper_model": os.getenv("WHISPER_MODEL"),
         "llm_model": os.getenv("LLM_MODEL"),
-        "llm_base_url": os.getenv("LLM_BASE_URL")
+        "llm_base_url": os.getenv("LLM_BASE_URL"),
     }
+
 
 @app.get("/api/system-prompt")
 async def get_system_prompt():
@@ -60,10 +69,13 @@ async def get_system_prompt():
 
     return {"default_prompt": service.get_default_system_prompt()}
 
+
 @app.post("/api/transcribe")
-async def transcribe_audio(audio: UploadFile = File(...)):
+async def transcribe_audio(audio: Annotated[UploadFile, File()]):
     if not service:
-        raise HTTPException(status_code=503, detail="Service not ready, still initializing models")
+        raise HTTPException(
+            status_code=503, detail="Service not ready, still initializing models"
+        )
 
     suffix = os.path.splitext(audio.filename)[1] or ".webm"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
@@ -77,12 +89,15 @@ async def transcribe_audio(audio: UploadFile = File(...)):
 
     except Exception as e:
         print(f"❌ Transcription error: {e}")
-        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Transcription failed: {str(e)}"
+        ) from e
 
     finally:
         # Always clean up temp file
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
 
 @app.post("/api/clean")
 async def clean_text(request: CleanRequest):
@@ -90,9 +105,11 @@ async def clean_text(request: CleanRequest):
         raise HTTPException(status_code=503, detail="Service not ready")
 
     try:
-        cleaned_text = service.clean_with_llm(request.text, system_prompt=request.system_prompt)
+        cleaned_text = service.clean_with_llm(
+            request.text, system_prompt=request.system_prompt
+        )
         return {"success": True, "text": cleaned_text}
 
     except Exception as e:
         print(f"❌ LLM cleaning error: {e}")
-        raise HTTPException(status_code=500, detail=f"Cleaning failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Cleaning failed: {str(e)}") from e

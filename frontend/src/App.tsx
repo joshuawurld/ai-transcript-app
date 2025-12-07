@@ -60,67 +60,70 @@ function App() {
     void loadSystemPrompt();
   }, []);
 
-  const uploadAudio = useCallback(async (audioBlob: Blob) => {
-    const formData = new FormData();
-    formData.append('audio', audioBlob, 'recording.webm');
+  const uploadAudio = useCallback(
+    async (audioBlob: Blob) => {
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.webm');
 
-    try {
-      const transcribeResponse = await fetch('/api/transcribe', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!transcribeResponse.ok) {
-        throw new Error(
-          `Transcription failed: ${transcribeResponse.statusText}`
-        );
-      }
-
-      const transcribeData =
-        (await transcribeResponse.json()) as TranscriptionResponse;
-
-      if (!transcribeData.success) {
-        throw new Error(transcribeData.error || 'Transcription failed');
-      }
-
-      setRawText(transcribeData.text || '');
-      setIsProcessing(false);
-      setError(null);
-
-      if (useLLM && transcribeData.text) {
-        setIsCleaningWithLLM(true);
-
-        const cleanResponse = await fetch('/api/clean', {
+      try {
+        const transcribeResponse = await fetch('/api/transcribe', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: transcribeData.text,
-            ...(systemPrompt && { system_prompt: systemPrompt }),
-          }),
+          body: formData,
         });
 
-        if (!cleanResponse.ok) {
+        if (!transcribeResponse.ok) {
+          throw new Error(
+            `Transcription failed: ${transcribeResponse.statusText}`
+          );
+        }
+
+        const transcribeData =
+          (await transcribeResponse.json()) as TranscriptionResponse;
+
+        if (!transcribeData.success) {
+          throw new Error(transcribeData.error || 'Transcription failed');
+        }
+
+        setRawText(transcribeData.text || '');
+        setIsProcessing(false);
+        setError(null);
+
+        if (useLLM && transcribeData.text) {
+          setIsCleaningWithLLM(true);
+
+          const cleanResponse = await fetch('/api/clean', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text: transcribeData.text,
+              ...(systemPrompt && { system_prompt: systemPrompt }),
+            }),
+          });
+
+          if (!cleanResponse.ok) {
+            setIsCleaningWithLLM(false);
+            throw new Error(`Cleaning failed: ${cleanResponse.statusText}`);
+          }
+
+          const cleanData = (await cleanResponse.json()) as CleanResponse;
+
+          if (cleanData.success && cleanData.text) {
+            setCleanedText(cleanData.text);
+          }
+
           setIsCleaningWithLLM(false);
-          throw new Error(`Cleaning failed: ${cleanResponse.statusText}`);
         }
-
-        const cleanData = (await cleanResponse.json()) as CleanResponse;
-
-        if (cleanData.success && cleanData.text) {
-          setCleanedText(cleanData.text);
-        }
-
-        setIsCleaningWithLLM(false);
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Unknown error';
+        setError('Processing failed: ' + errorMessage);
+        setIsProcessing(false);
       }
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Unknown error';
-      setError('Processing failed: ' + errorMessage);
-      setIsProcessing(false);
-    }
-  }, [useLLM, systemPrompt]);
+    },
+    [useLLM, systemPrompt]
+  );
 
   const startRecording = useCallback(async () => {
     try {
@@ -147,8 +150,7 @@ function App() {
       setCleanedText(null);
       setIsCleaningWithLLM(false);
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       setError('Microphone access denied: ' + errorMessage);
     }
   }, [uploadAudio]);
@@ -201,54 +203,57 @@ function App() {
     }
   };
 
-  const handleTextSubmit = useCallback(async (text: string) => {
-    if (!text.trim()) return;
+  const handleTextSubmit = useCallback(
+    async (text: string) => {
+      if (!text.trim()) return;
 
-    try {
-      setError(null);
-      setRawText(null);
-      setCleanedText(null);
-      setIsProcessing(true);
-      setIsCleaningWithLLM(false);
+      try {
+        setError(null);
+        setRawText(null);
+        setCleanedText(null);
+        setIsProcessing(true);
+        setIsCleaningWithLLM(false);
 
-      setRawText(text);
-      setIsProcessing(false);
+        setRawText(text);
+        setIsProcessing(false);
 
-      if (useLLM) {
-        setIsCleaningWithLLM(true);
+        if (useLLM) {
+          setIsCleaningWithLLM(true);
 
-        const cleanResponse = await fetch('/api/clean', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            text: text,
-            ...(systemPrompt && { system_prompt: systemPrompt }),
-          }),
-        });
+          const cleanResponse = await fetch('/api/clean', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              text: text,
+              ...(systemPrompt && { system_prompt: systemPrompt }),
+            }),
+          });
 
-        if (!cleanResponse.ok) {
+          if (!cleanResponse.ok) {
+            setIsCleaningWithLLM(false);
+            throw new Error(`Cleaning failed: ${cleanResponse.statusText}`);
+          }
+
+          const cleanData = (await cleanResponse.json()) as CleanResponse;
+
+          if (cleanData.success && cleanData.text) {
+            setCleanedText(cleanData.text);
+          }
+
           setIsCleaningWithLLM(false);
-          throw new Error(`Cleaning failed: ${cleanResponse.statusText}`);
         }
-
-        const cleanData = (await cleanResponse.json()) as CleanResponse;
-
-        if (cleanData.success && cleanData.text) {
-          setCleanedText(cleanData.text);
-        }
-
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : 'Unknown error';
+        setError('Processing failed: ' + errorMessage);
+        setIsProcessing(false);
         setIsCleaningWithLLM(false);
       }
-    } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : 'Unknown error';
-      setError('Processing failed: ' + errorMessage);
-      setIsProcessing(false);
-      setIsCleaningWithLLM(false);
-    }
-  }, [useLLM, systemPrompt]);
+    },
+    [useLLM, systemPrompt]
+  );
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard
@@ -335,7 +340,9 @@ function App() {
           onPromptChange={setSystemPrompt}
         />
 
-        {error && <ErrorMessage message={error} onDismiss={() => setError(null)} />}
+        {error && (
+          <ErrorMessage message={error} onDismiss={() => setError(null)} />
+        )}
 
         <TranscriptionResults
           rawText={rawText}
@@ -346,9 +353,10 @@ function App() {
           isProcessing={isProcessing}
           isOriginalExpanded={isOriginalExpanded}
           onCopy={copyToClipboard}
-          onToggleOriginalExpanded={() => setIsOriginalExpanded(!isOriginalExpanded)}
+          onToggleOriginalExpanded={() =>
+            setIsOriginalExpanded(!isOriginalExpanded)
+          }
         />
-
         <Footer />
       </div>
     </div>

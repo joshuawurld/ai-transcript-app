@@ -69,9 +69,7 @@ export function UploadZone({
         <p className={styles.title}>
           {isDragging ? 'Drop file here' : 'Upload Audio File'}
         </p>
-        <p className={styles.subtitle}>
-          Drag and drop or click to browse
-        </p>
+        <p className={styles.subtitle}>Drag and drop or click to browse</p>
         <p className={styles.formats}>MP3, WAV, M4A, WebM, OGG</p>
       </div>
 

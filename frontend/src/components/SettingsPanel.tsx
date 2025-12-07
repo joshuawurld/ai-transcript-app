@@ -42,7 +42,11 @@ export function SettingsPanel({
             className={styles.promptHeader}
             onClick={() => setIsPromptExpanded(!isPromptExpanded)}
             aria-expanded={isPromptExpanded}
-            aria-label={isPromptExpanded ? 'Collapse system prompt' : 'Expand system prompt'}
+            aria-label={
+              isPromptExpanded
+                ? 'Collapse system prompt'
+                : 'Expand system prompt'
+            }
             type="button"
           >
             <span className={styles.promptLabel}>System Prompt</span>

@@ -20,7 +20,9 @@ export function Box({
               className={styles.collapsibleHeader}
               onClick={onToggleExpanded}
               aria-expanded={isExpanded}
-              aria-label={isExpanded ? `Collapse ${header}` : `Expand ${header}`}
+              aria-label={
+                isExpanded ? `Collapse ${header}` : `Expand ${header}`
+              }
               type="button"
             >
               {Icon && <Icon className={styles.icon} />}
@@ -40,9 +42,7 @@ export function Box({
         </div>
       )}
       {(!collapsible || isExpanded) && (
-        <div className={styles.content}>
-          {children}
-        </div>
+        <div className={styles.content}>{children}</div>
       )}
     </div>
   );

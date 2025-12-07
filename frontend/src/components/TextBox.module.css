@@ -10,45 +10,70 @@
 }
 
 .textBox.input {
-  background: linear-gradient(135deg, rgb(240, 249, 255) 0%, rgb(235, 245, 255) 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(240, 249, 255) 0%,
+    rgb(235, 245, 255) 100%
+  );
   border: 2px solid rgba(91, 159, 245, 0.35);
-  box-shadow: 0 3px 10px rgba(91, 159, 245, 0.12),
-              0 1px 4px rgba(0, 0, 0, 0.06),
-              inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 3px 10px rgba(91, 159, 245, 0.12),
+    0 1px 4px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
   padding: 0;
 }
 
 .textBox.input:hover {
-  background: linear-gradient(135deg, rgb(245, 251, 255) 0%, rgb(240, 249, 255) 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(245, 251, 255) 0%,
+    rgb(240, 249, 255) 100%
+  );
   border-color: rgba(91, 159, 245, 0.45);
-  box-shadow: 0 5px 15px rgba(91, 159, 245, 0.16),
-              0 2px 6px rgba(0, 0, 0, 0.08),
-              inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 5px 15px rgba(91, 159, 245, 0.16),
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .textBox.input:focus-within {
-  background: linear-gradient(135deg, rgb(250, 253, 255) 0%, rgb(245, 251, 255) 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(250, 253, 255) 0%,
+    rgb(245, 251, 255) 100%
+  );
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(91, 159, 245, 0.2),
-              0 6px 18px rgba(91, 159, 245, 0.2),
-              inset 0 1px 0 rgba(255, 255, 255, 1);
+  box-shadow:
+    0 0 0 3px rgba(91, 159, 245, 0.2),
+    0 6px 18px rgba(91, 159, 245, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
 }
 
 .textBox.display {
-  background: linear-gradient(135deg, rgb(240, 249, 255) 0%, rgb(235, 245, 255) 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(240, 249, 255) 0%,
+    rgb(235, 245, 255) 100%
+  );
   border: 2px solid rgba(91, 159, 245, 0.35);
-  box-shadow: 0 3px 10px rgba(91, 159, 245, 0.12),
-              0 1px 4px rgba(0, 0, 0, 0.06),
-              inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  box-shadow:
+    0 3px 10px rgba(91, 159, 245, 0.12),
+    0 1px 4px rgba(0, 0, 0, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
   overflow-y: auto;
 }
 
 .textBox.display:hover {
-  background: linear-gradient(135deg, rgb(245, 251, 255) 0%, rgb(240, 249, 255) 100%);
+  background: linear-gradient(
+    135deg,
+    rgb(245, 251, 255) 0%,
+    rgb(240, 249, 255) 100%
+  );
   border-color: rgba(91, 159, 245, 0.45);
-  box-shadow: 0 5px 15px rgba(91, 159, 245, 0.16),
-              0 2px 6px rgba(0, 0, 0, 0.08),
-              inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  box-shadow:
+    0 5px 15px rgba(91, 159, 245, 0.16),
+    0 2px 6px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .textBox.loading {

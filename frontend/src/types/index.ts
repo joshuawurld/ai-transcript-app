@@ -103,7 +103,12 @@ export interface BoxProps {
   className?: string;
 }
 
-export type AudioFileType = 'audio/mpeg' | 'audio/wav' | 'audio/webm' | 'audio/ogg' | 'audio/x-m4a';
+export type AudioFileType =
+  | 'audio/mpeg'
+  | 'audio/wav'
+  | 'audio/webm'
+  | 'audio/ogg'
+  | 'audio/x-m4a';
 
 export const ACCEPTED_AUDIO_TYPES: AudioFileType[] = [
   'audio/mpeg',
