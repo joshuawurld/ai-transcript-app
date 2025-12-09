@@ -47,6 +47,7 @@ const setNotes = [
   "Max effort",
 ];
 // Hover over setNotes - TypeScript inferred: string[]
+console.log(`Notes for first set: ${setNotes[0] ?? "No notes"}`);  // Use setNotes to demonstrate
 
 console.log("=== Workout Session ===");
 console.log(`Exercise: ${exercise}`);
@@ -76,7 +77,8 @@ console.log(`Total reps: ${totalReps}`);
 
 // Calculate volume with reduce
 const totalVolume: number = repsPerSet.reduce((sum, reps, index) => {
-  return sum + reps * weights[index];
+  const weight = weights[index] ?? 0;  // Handle potentially undefined index access
+  return sum + reps * weight;
 }, 0);
 console.log(`Total volume: ${totalVolume} lbs`);
 
@@ -242,3 +244,6 @@ console.log("\n=== YOUR WORKOUT ===");
 // - Verify your array type annotations match the data
 //
 // Ask me: "Why am I getting a type error in my array?"
+
+// Make this file a module to avoid variable name conflicts with other exercise files
+export {};

@@ -96,10 +96,11 @@ class GymMember {
     weight: number
   ): void {
     const now = new Date();
+    const timeStr = now.toTimeString().split(" ")[0] ?? "00:00:00";
     const dateStr =
       now.toISOString().split("T")[0] +
       " " +
-      now.toTimeString().split(" ")[0].slice(0, 5);
+      timeStr.slice(0, 5);
 
     const workout: Workout = {
       date: dateStr,
@@ -229,13 +230,16 @@ class Gym {
       for (const idStr in data.members) {
         const id = parseInt(idStr);
         const memberData = data.members[id];
-        this.members.set(id, GymMember.fromData(memberData));
+        if (memberData) {
+          this.members.set(id, GymMember.fromData(memberData));
+        }
       }
 
       console.log(`✓ Loaded gym data from ${filename}`);
       console.log(`  Gym: ${this.name} with ${this.members.size} members`);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      const nodeError = error as { code?: string };
+      if (nodeError.code === "ENOENT") {
         console.log(`✗ File ${filename} not found. Starting fresh!`);
       } else {
         console.log(`✗ Error loading file: ${error}`);
@@ -448,3 +452,6 @@ console.log("\n\n=== YOUR GYM SIMULATOR ===\n");
 // - Use type guards (if checks) for optional values
 //
 // Ask me: "What's the best way to improve my TypeScript skills?"
+
+// Make this file a module to avoid variable name conflicts with other exercise files
+export {};

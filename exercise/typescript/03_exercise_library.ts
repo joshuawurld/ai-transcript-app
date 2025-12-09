@@ -128,15 +128,19 @@ console.log();
 // Access specific exercise (TypeScript knows it's an Exercise!)
 const squatInfo = exerciseLibrary["squat"];
 console.log("Squat info:");
-console.log(`  Name: ${squatInfo.name}`);
-console.log(`  Targets: ${squatInfo.muscleGroup}`);
+if (squatInfo) {
+  console.log(`  Name: ${squatInfo.name}`);
+  console.log(`  Targets: ${squatInfo.muscleGroup}`);
+}
 console.log();
 
 // Loop through all exercises
 console.log("All exercises:");
 for (const key in exerciseLibrary) {
   const ex = exerciseLibrary[key];
-  console.log(`  → ${ex.name} - ${ex.muscleGroup} (${ex.difficulty})`);
+  if (ex) {
+    console.log(`  → ${ex.name} - ${ex.muscleGroup} (${ex.difficulty})`);
+  }
 }
 
 // ============================================================================
@@ -308,3 +312,6 @@ console.log("\n=== YOUR EXERCISE LIBRARY ===");
 // - Make sure property names are spelled correctly
 //
 // Ask me: "Why is TypeScript showing an error on my interface?"
+
+// Make this file a module to avoid variable name conflicts with other exercise files
+export {};

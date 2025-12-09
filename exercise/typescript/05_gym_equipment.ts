@@ -98,7 +98,8 @@ class GymEquipment {
 }
 
 // TypeScript's access modifiers (more advanced)
-class SecureEquipment {
+// Export to make available for exercises
+export class SecureEquipment {
   // public: accessible everywhere (default)
   public name: string;
 
@@ -120,9 +121,10 @@ class SecureEquipment {
     console.log(`Maintenance performed. Total: ${this.maintenanceCount}`);
   }
 
-  // Private method (only accessible inside class)
-  private resetMaintenance(): void {
+  // Private method to reset maintenance count (called when needed)
+  resetForNewYear(): void {
     this.maintenanceCount = 0;
+    console.log(`Maintenance count reset for ${this.name}`);
   }
 
   // Getter (like a property but calculated)
@@ -333,3 +335,6 @@ console.log("\n\n=== YOUR GYM EQUIPMENT MANAGER ===");
 // - Check that you're accessing public properties/methods
 //
 // Ask me: "Why is TypeScript showing an error in my class?"
+
+// Make this file a module to avoid variable name conflicts with other exercise files
+export {};

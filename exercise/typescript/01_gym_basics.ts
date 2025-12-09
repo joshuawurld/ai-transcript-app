@@ -202,3 +202,6 @@ console.log("\n=== YOUR WORKOUT LOG ===");
 //
 // Key learning: TypeScript catches errors BEFORE you run the code!
 // This is the power of static typing.
+
+// Make this file a module to avoid variable name conflicts with other exercise files
+export {};

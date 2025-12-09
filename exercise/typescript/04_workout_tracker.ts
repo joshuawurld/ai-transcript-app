@@ -41,7 +41,8 @@
 // ============================================================================
 
 // We can define the type of a function itself!
-type VolumeCalculator = (reps: number, weight: number) => number;
+// Export to make available for exercises and avoid unused warning
+export type VolumeCalculator = (reps: number, weight: number) => number;
 
 // ============================================================================
 // EXAMPLE CODE
@@ -65,7 +66,11 @@ function calculateVolume(reps: number, weight: number): number {
 function calculateTotalVolume(reps: number[], weights: number[]): number {
   let total = 0;
   for (let i = 0; i < reps.length; i++) {
-    total += calculateVolume(reps[i], weights[i]);
+    const r = reps[i];
+    const w = weights[i];
+    if (r !== undefined && w !== undefined) {
+      total += calculateVolume(r, w);
+    }
   }
   return total;
 }
@@ -309,3 +314,6 @@ console.log("\n\n=== YOUR WORKOUT TRACKER ===");
 // - Check optional parameter usage
 //
 // Ask me: "Why is TypeScript showing an error in my function?"
+
+// Make this file a module to avoid variable name conflicts with other exercise files
+export {};
