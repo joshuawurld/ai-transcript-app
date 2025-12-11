@@ -64,6 +64,18 @@
   margin-bottom: 0;
 }
 
+.summary a {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: var(--font-weight-medium);
+  transition: color var(--transition-base);
+}
+
+.summary a:hover {
+  color: var(--color-primary-hover);
+  text-decoration: underline;
+}
+
 .calendarSection {
   display: flex;
   flex-direction: column;

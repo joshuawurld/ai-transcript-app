@@ -140,3 +140,30 @@ async def process_with_agent(request: AgentRequest):
         raise HTTPException(
             status_code=500, detail=f"Agent processing failed: {str(e)}"
         ) from e
+
+
+@app.post("/api/review-issues")
+async def review_github_issues():
+    """Review GitHub issues using MCP-powered agent.
+
+    This endpoint demonstrates MCP's value proposition:
+    - Dynamic tool discovery via list_tools()
+    - LLM decides which discovered tools to use
+    - Compare to /api/process-agent which uses REST for issue creation
+
+    The agent reviews issues with 'transcript-app' label and can:
+    - Add status comments
+    - Add labels (e.g., 'needs-attention')
+    - Close resolved issues
+    """
+    from github_issue_agent import review_issues
+
+    try:
+        result = await review_issues()
+        return result
+
+    except Exception as e:
+        print(f"❌ Issue review error: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Issue review failed: {str(e)}"
+        ) from e

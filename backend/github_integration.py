@@ -1,37 +1,45 @@
 """
-Issue Writer Agent - formats and publishes issues.
+GitHub Integration - REST API for Issue Creation
 
-The agent formats structured data into GitHub issues and can publish them via MCP.
-If GitHub is not configured, the agent still formats the issue but skips publishing.
+This module creates GitHub issues from transcript analysis results.
+
+WHY REST (not MCP) HERE:
+We know exactly what we want: create an issue with specific content.
+No discovery needed, no dynamic tool selection - just a simple HTTP POST.
+REST is the right choice for known, single operations.
+
+For dynamic tool discovery (where an agent decides what to do),
+see github_issue_agent.py which uses MCP appropriately.
+
+Issue Format:
+All issues are created with a consistent structure featuring checkbox
+action items. This format is understood by both:
+1. This module (creates issues)
+2. The Issue Review Agent (analyzes/updates issues via MCP)
 
 Usage:
-    from github_integration import write_issue, write_issues_batch
+    from github_integration import create_github_issue, write_issue
 
-    result = write_issue("incident_report", tool_input_data)
-    results = write_issues_batch("task", [task1, task2, task3])
+    # Direct issue creation
+    result = await create_github_issue(
+        title="[Incident] Payment API Outage",
+        body="## Summary\\n...",
+        labels=["incident", "critical"]
+    )
+
+    # From structured tool data
+    result = await write_issue("incident_report", tool_data)
 """
 
-import asyncio
-import json
 import os
-from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 import httpx
-from mcp import ClientSession
-from mcp.client.streamable_http import streamablehttp_client
-from pydantic import BaseModel, Field
-from pydantic_ai import Agent, RunContext
-from pydantic_ai.models.openai import OpenAIChatModel
-from pydantic_ai.providers.openai import OpenAIProvider
 
-GITHUB_MCP_URL = "https://api.githubcopilot.com/mcp/"
-PROMPTS_DIR = Path(__file__).parent / "prompts"
-ISSUE_WRITER_PROMPT = (PROMPTS_DIR / "issue_writer.txt").read_text().strip()
+GITHUB_API_URL = "https://api.github.com"
 
-# Limit concurrent requests to avoid rate limits
-MAX_CONCURRENT_ISSUES = 5
+# Label added to all issues for the review agent to find
+TRANSCRIPT_APP_LABEL = "transcript-app"
 
 
 def check_github_config() -> bool:
@@ -54,277 +62,327 @@ def check_github_config() -> bool:
         )
         return False
 
-    print(f"[github] GitHub integration: ENABLED (target: {repo})")
+    print(f"[github] GitHub integration: ENABLED (repo={repo})")
     return True
 
 
-# =============================================================================
-# Structured Output Model
-# =============================================================================
+async def create_github_issue(
+    title: str,
+    body: str,
+    labels: list[str] | None = None,
+) -> dict:
+    """Create a GitHub issue via REST API.
 
+    WHY REST: We know exactly what we want (create issue).
+    No discovery needed. Simple HTTP POST.
 
-class GitHubIssueResult(BaseModel):
-    """Structured output from Issue Writer Agent."""
+    Args:
+        title: Issue title
+        body: Issue body (markdown)
+        labels: Optional list of label names
 
-    title: str = Field(description="Issue title")
-    body: str = Field(description="Markdown-formatted issue body")
-    labels: list[str] = Field(description="GitHub labels for the issue")
-    github_issue_url: str | None = Field(
-        default=None, description="URL if issue was created in GitHub"
-    )
-    github_issue_number: int | None = Field(
-        default=None, description="Issue number if created"
-    )
-
-
-# =============================================================================
-# Agent Dependencies
-# =============================================================================
-
-
-@dataclass
-class IssueWriterDeps:
-    """Dependencies injected into Issue Writer Agent via RunContext.
-
-    The MCP session allows the agent's tool to call GitHub directly.
-    If mcp_session is None, the agent can still format issues but won't create them.
+    Returns:
+        dict with status, issue_url, issue_number on success
+        dict with status, message on error
     """
+    token = os.getenv("GITHUB_TOKEN")
+    repo = os.getenv("GITHUB_ISSUES_REPO")
 
-    mcp_session: ClientSession | None
-    github_owner: str | None
-    github_repo: str | None
-    # Mutable field to capture tool results
-    tool_called: bool = False
-    issue_url: str | None = None
-    issue_number: int | None = None
+    if not token or not repo:
+        print("[github] Skipping - GITHUB_TOKEN or GITHUB_ISSUES_REPO not set")
+        return {"status": "skipped", "message": "GitHub not configured"}
 
+    try:
+        owner, repo_name = repo.split("/")
+    except ValueError:
+        return {"status": "error", "message": f"Invalid repo format: {repo}"}
 
-# =============================================================================
-# Issue Writer Agent (Truly Agentic)
-# =============================================================================
+    url = f"{GITHUB_API_URL}/repos/{owner}/{repo_name}/issues"
 
-_issue_writer_agent: Agent[IssueWriterDeps, GitHubIssueResult] | None = None
+    # Always add transcript-app label for the review agent to find
+    all_labels = list(set((labels or []) + [TRANSCRIPT_APP_LABEL]))
 
+    payload = {
+        "title": title,
+        "body": body,
+        "labels": all_labels,
+    }
 
-def _create_issue_writer_agent() -> Agent[IssueWriterDeps, GitHubIssueResult]:
-    """Create Issue Writer Agent with MCP tool access."""
-    model = OpenAIChatModel(
-        os.getenv("LLM_MODEL", "anthropic/claude-sonnet-4-5"),
-        provider=OpenAIProvider(
-            base_url=os.getenv("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
-            api_key=os.getenv("LLM_API_KEY", ""),
-        ),
-    )
+    print(f"[github] Creating issue: {title}")
 
-    agent: Agent[IssueWriterDeps, GitHubIssueResult] = Agent(
-        model,
-        deps_type=IssueWriterDeps,
-        result_type=GitHubIssueResult,
-        system_prompt=ISSUE_WRITER_PROMPT,
-    )
-
-    @agent.tool
-    async def create_github_issue(
-        ctx: RunContext[IssueWriterDeps],
-        title: str,
-        body: str,
-        labels: list[str],
-    ) -> str:
-        """Create a GitHub issue via MCP.
-
-        Call this tool AFTER you have formatted the issue title, body, and labels.
-        The issue will be created in the configured GitHub repository.
-        """
-        session = ctx.deps.mcp_session
-
-        if session is None:
-            print("[issue-writer] Tool called but MCP session not available")
-            return "GitHub integration not configured. Issue formatted but not created in GitHub."
-
-        print(f"[issue-writer] Tool called: creating issue '{title}'")
-        try:
-            result = await session.call_tool(
-                "create_issue",
-                arguments={
-                    "owner": ctx.deps.github_owner,
-                    "repo": ctx.deps.github_repo,
-                    "title": title,
-                    "body": body,
-                    "labels": labels,
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                url,
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                    "X-GitHub-Api-Version": "2022-11-28",
                 },
+                json=payload,
+                timeout=30.0,
             )
 
-            # Mark that tool was called and capture result
-            ctx.deps.tool_called = True
+        if response.status_code == 201:
+            data = response.json()
+            print(f"[github] Created: {data['html_url']}")
+            return {
+                "status": "success",
+                "issue_url": data["html_url"],
+                "issue_number": data["number"],
+            }
 
-            # Parse MCP result to extract issue URL/number
-            if result.content:
-                content = result.content
-                if isinstance(content, list) and len(content) > 0:
-                    text_content = content[0].text if hasattr(content[0], "text") else str(content[0])
-                    try:
-                        issue_data = json.loads(text_content)
-                        ctx.deps.issue_url = issue_data.get("html_url")
-                        ctx.deps.issue_number = issue_data.get("number")
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-
-            print("[issue-writer] MCP call successful")
-            return f"Successfully created GitHub issue: {title}"
-
-        except Exception as e:
-            print(f"[issue-writer] MCP call failed: {e}")
-            return f"Failed to create GitHub issue: {e}"
-
-    return agent
-
-
-def _get_issue_writer_agent() -> Agent[IssueWriterDeps, GitHubIssueResult]:
-    """Get or create the Issue Writer Agent (lazy initialization)."""
-    global _issue_writer_agent
-    if _issue_writer_agent is None:
-        _issue_writer_agent = _create_issue_writer_agent()
-    return _issue_writer_agent
-
-
-# =============================================================================
-# Public API
-# =============================================================================
-
-
-async def _invoke_issue_writer_agent(
-    content_type: str,
-    data: dict[str, Any],
-) -> dict[str, Any]:
-    """Invoke Issue Writer Agent - it autonomously decides to create GitHub issue."""
-    token = os.getenv("GITHUB_TOKEN")
-    repo_env = os.getenv("GITHUB_ISSUES_REPO")
-
-    prompt = f"""Content Type: {content_type}
-
-Structured Data:
-{json.dumps(data, indent=2, default=str)}
-
-Format this as a GitHub issue with appropriate title, body (markdown), and labels.
-Then create the issue in GitHub using the create_github_issue tool."""
-
-    # Skip entirely if GitHub not configured
-    if not token or not repo_env:
-        print("[issue-writer] Skipping - GitHub not configured")
-        return None
-
-    agent = _get_issue_writer_agent()
-    print("[issue-writer] Agent ready")
-
-    try:
-        owner, repo = repo_env.split("/")
-    except ValueError:
-        print(f"[issue-writer] Invalid repo format: '{repo_env}'")
-        return {"status": "error", "message": f"Invalid repo format: {repo_env}"}
-
-    headers = {"Authorization": f"Bearer {token}"}
-
-    print(f"[issue-writer] Processing {content_type} for {owner}/{repo}")
-
-    async with (
-        httpx.AsyncClient(headers=headers) as http_client,
-        streamablehttp_client(GITHUB_MCP_URL, http_client=http_client) as (
-            read,
-            write,
-            _,
-        ),
-        ClientSession(read, write) as session,
-    ):
-        await session.initialize()
-        print("[issue-writer] MCP session ready")
-
-        deps = IssueWriterDeps(
-            mcp_session=session,
-            github_owner=owner,
-            github_repo=repo,
-        )
-
-        print("[issue-writer] Running agent...")
-        result = await agent.run(prompt, deps=deps)
-
-        print(f"[issue-writer] Agent returned: {result.output.title}")
-        if deps.tool_called:
-            print(f"[issue-writer] Published to GitHub: {deps.issue_url or 'URL not captured'}")
-
+        error_msg = response.text
+        print(f"[github] Failed ({response.status_code}): {error_msg}")
         return {
-            "status": "success",
-            "title": result.output.title,
-            "body": result.output.body,
-            "labels": result.output.labels,
-            "repo": f"{owner}/{repo}",
-            "github_issue_created": deps.tool_called,
-            "github_issue_url": deps.issue_url,
-            "github_issue_number": deps.issue_number,
+            "status": "error",
+            "message": f"GitHub API error {response.status_code}: {error_msg}",
         }
 
-
-def write_issue(
-    content_type: str,
-    data: dict[str, Any],
-) -> dict[str, Any] | None:
-    """Invoke Issue Writer Agent to format and publish an issue.
-
-    The agent autonomously decides whether to publish (e.g., to GitHub).
-    """
-    try:
-        return asyncio.run(_invoke_issue_writer_agent(content_type, data))
-    except Exception as e:
-        print(f"[issue-writer] Error: {e}")
+    except httpx.TimeoutException:
+        print("[github] Request timed out")
+        return {"status": "error", "message": "Request timed out"}
+    except httpx.RequestError as e:
+        print(f"[github] Request failed: {e}")
         return {"status": "error", "message": str(e)}
 
 
-# Backward compatibility alias
-create_github_issue = write_issue
+def _format_action_item(item: dict) -> str:
+    """Format a single action item as a GitHub checkbox.
+
+    Format: - [ ] Task description (@owner, due: YYYY-MM-DD, priority: high)
+
+    This consistent format is parsed by the Issue Review Agent.
+    """
+    task = item.get("task") or item.get("action", "No task")
+    owner = item.get("owner", "unassigned")
+    priority = item.get("priority", "")
+    due_date = item.get("due_date", "")
+
+    # Build metadata string
+    metadata_parts = [f"@{owner}"]
+    if due_date:
+        metadata_parts.append(f"due: {due_date}")
+    if priority and priority.lower() != "normal":
+        metadata_parts.append(f"priority: {priority}")
+
+    metadata = ", ".join(metadata_parts)
+    return f"- [ ] {task} ({metadata})"
 
 
-def write_issues_batch(
-    content_type: str,
-    data_list: list[dict[str, Any]],
-) -> list[dict[str, Any]]:
-    """Invoke Issue Writer Agent for multiple items in parallel (max 5 concurrent)."""
-    if not data_list:
-        return []
+def _format_issue_from_data(content_type: str, data: dict[str, Any]) -> tuple[str, str, list[str]]:
+    """Format structured data into GitHub issue title, body, and labels.
 
-    # Skip entirely if GitHub not configured
-    token = os.getenv("GITHUB_TOKEN")
-    repo_env = os.getenv("GITHUB_ISSUES_REPO")
-    if not token or not repo_env:
-        return []
+    All issue types use a consistent format with checkbox action items.
+    This format is understood by the Issue Review Agent (github_issue_agent.py).
 
-    semaphore = asyncio.Semaphore(MAX_CONCURRENT_ISSUES)
+    Args:
+        content_type: Type of content (e.g., 'incident_report', 'decision_record')
+        data: Structured data from the tool
 
-    async def _create_single(data: dict) -> dict[str, Any]:
-        async with semaphore:
-            result = await _invoke_issue_writer_agent(content_type, data)
-            return result if result else {"status": "error", "message": "Not configured"}
+    Returns:
+        Tuple of (title, body, labels)
+    """
+    if content_type == "incident_report":
+        return _format_incident_issue(data)
+    if content_type == "decision_record":
+        return _format_decision_issue(data)
+    if content_type == "meeting_summary":
+        return _format_meeting_issue(data)
+    return _format_generic_issue(content_type, data)
 
-    async def _batch_workflow():
-        print(f"[issue-writer] Processing {len(data_list)} items (max {MAX_CONCURRENT_ISSUES} concurrent)...")
-        tasks = [_create_single(d) for d in data_list]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        processed = []
-        for r in results:
-            if isinstance(r, Exception):
-                processed.append({"status": "error", "message": str(r)})
+def _format_incident_issue(data: dict[str, Any]) -> tuple[str, str, list[str]]:
+    """Format incident report as GitHub issue."""
+    title = f"[Incident] {data.get('incident_title', data.get('title', 'Untitled'))}"
+    severity = data.get("severity", "unknown").lower()
+    labels = ["incident", severity]
+
+    # Build body with consistent structure
+    body_parts = [
+        "## Summary",
+        "",
+        f"**Severity:** {severity.upper()}",
+        f"**Root Cause:** {data.get('root_cause', 'Unknown')}",
+        "",
+    ]
+
+    # Timeline section
+    timeline = data.get("timeline", [])
+    if timeline:
+        body_parts.append("## Timeline")
+        body_parts.append("")
+        for event in timeline:
+            time = event.get("time", "?")
+            desc = event.get("event", "?")
+            actor = event.get("actor", "")
+            actor_str = f" ({actor})" if actor else ""
+            body_parts.append(f"- **{time}:** {desc}{actor_str}")
+        body_parts.append("")
+
+    # Action items section (checkbox format)
+    action_items = data.get("follow_up_actions", data.get("action_items", []))
+    if action_items:
+        body_parts.append("## Action Items")
+        body_parts.append("")
+        for item in action_items:
+            body_parts.append(_format_action_item(item))
+        body_parts.append("")
+
+    # Footer
+    body_parts.append("---")
+    body_parts.append("*Created by Transcript App*")
+
+    return title, "\n".join(body_parts), labels
+
+
+def _format_decision_issue(data: dict[str, Any]) -> tuple[str, str, list[str]]:
+    """Format architecture decision record as GitHub issue."""
+    title = f"[ADR] {data.get('title', 'Untitled Decision')}"
+    labels = ["adr", "decision"]
+
+    body_parts = [
+        "## Summary",
+        "",
+        f"**Status:** {data.get('status', 'Proposed')}",
+        f"**Date:** {data.get('date', 'Unknown')}",
+        "",
+        "## Context",
+        "",
+        data.get("context", "No context provided."),
+        "",
+        "## Decision",
+        "",
+        data.get("decision", "No decision provided."),
+        "",
+        "## Consequences",
+        "",
+        data.get("consequences", "No consequences listed."),
+        "",
+    ]
+
+    # Action items for implementation
+    action_items = data.get("action_items", [])
+    if action_items:
+        body_parts.append("## Action Items")
+        body_parts.append("")
+        for item in action_items:
+            body_parts.append(_format_action_item(item))
+        body_parts.append("")
+
+    # Footer
+    body_parts.append("---")
+    body_parts.append("*Created by Transcript App*")
+
+    return title, "\n".join(body_parts), labels
+
+
+def _format_meeting_issue(data: dict[str, Any]) -> tuple[str, str, list[str]]:
+    """Format meeting summary as GitHub issue."""
+    meeting_type = data.get("meeting_type", "meeting").replace("_", " ").title()
+    title = f"[{meeting_type}] {data.get('meeting_title', 'Untitled Meeting')}"
+    labels = ["meeting", data.get("meeting_type", "general")]
+
+    body_parts = [
+        "## Summary",
+        "",
+        data.get("summary", "No summary provided."),
+        "",
+    ]
+
+    # Key decisions
+    decisions = data.get("key_decisions", [])
+    if decisions:
+        body_parts.append("## Key Decisions")
+        body_parts.append("")
+        for decision in decisions:
+            body_parts.append(f"- {decision}")
+        body_parts.append("")
+
+    # Action items (checkbox format)
+    action_items = data.get("action_items", [])
+    if action_items:
+        body_parts.append("## Action Items")
+        body_parts.append("")
+        for item in action_items:
+            body_parts.append(_format_action_item(item))
+        body_parts.append("")
+
+    # Footer
+    body_parts.append("---")
+    body_parts.append("*Created by Transcript App*")
+
+    return title, "\n".join(body_parts), labels
+
+
+def _format_generic_issue(content_type: str, data: dict[str, Any]) -> tuple[str, str, list[str]]:
+    """Format unknown content types as GitHub issue."""
+    type_label = content_type.replace("_", " ").title()
+    title = f"[{type_label}] {data.get('title', 'Untitled')}"
+    labels = [content_type.replace("_", "-")]
+
+    body_parts = [
+        "## Summary",
+        "",
+        data.get("summary", data.get("description", "No summary provided.")),
+        "",
+    ]
+
+    # Try to find action items in common field names
+    action_items = (
+        data.get("action_items", [])
+        or data.get("tasks", [])
+        or data.get("follow_up_actions", [])
+    )
+    if action_items:
+        body_parts.append("## Action Items")
+        body_parts.append("")
+        for item in action_items:
+            if isinstance(item, str):
+                body_parts.append(f"- [ ] {item} (@unassigned)")
             else:
-                processed.append(r)
+                body_parts.append(_format_action_item(item))
+        body_parts.append("")
 
-        success_count = sum(1 for r in processed if r.get("status") == "success")
-        print(f"[issue-writer] Batch complete: {success_count}/{len(data_list)} succeeded")
-        return processed
+    # Footer
+    body_parts.append("---")
+    body_parts.append("*Created by Transcript App*")
+
+    return title, "\n".join(body_parts), labels
+
+
+async def write_issue(
+    content_type: str,
+    data: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Format and publish a GitHub issue from structured tool data.
+
+    This is the main entry point for agent tools that want to create issues.
+
+    Args:
+        content_type: Type of content (e.g., 'incident_report', 'decision_record')
+        data: Structured data from the tool
+
+    Returns:
+        dict with status and result details, or None if GitHub not configured
+    """
+    token = os.getenv("GITHUB_TOKEN")
+    repo = os.getenv("GITHUB_ISSUES_REPO")
+
+    if not token or not repo:
+        print("[github] Skipping issue creation - GitHub not configured")
+        return None
 
     try:
-        return asyncio.run(_batch_workflow())
+        title, body, labels = _format_issue_from_data(content_type, data)
+        result = await create_github_issue(title, body, labels)
+
+        # Add metadata to result
+        result["content_type"] = content_type
+        result["repo"] = repo
+
+        return result
+
     except Exception as e:
-        print(f"[issue-writer] Batch error: {e}")
-        return []
-
-
-# Backward compatibility alias
-create_github_issues_batch = write_issues_batch
+        print(f"[github] Error creating issue: {e}")
+        return {"status": "error", "message": str(e)}

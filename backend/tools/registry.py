@@ -1,6 +1,7 @@
 """ToolRegistry - manages available tools."""
 
-from typing import Dict, List, Any
+from typing import Any
+
 from .base import Tool
 
 
@@ -8,7 +9,7 @@ class ToolRegistry:
     """Registry for managing tools."""
 
     def __init__(self):
-        self._tools: Dict[str, Tool] = {}
+        self._tools: dict[str, Tool] = {}
 
     def register(self, tool: Tool) -> None:
         self._tools[tool.name] = tool
@@ -19,14 +20,14 @@ class ToolRegistry:
             raise KeyError(f"Tool '{name}' not found in registry")
         return self._tools[name]
 
-    def execute(self, name: str, tool_input: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute(self, name: str, tool_input: dict[str, Any]) -> dict[str, Any]:
         tool = self.get(name)
-        return tool.execute(tool_input)
+        return await tool.execute(tool_input)
 
-    def get_all_tools(self) -> List[Tool]:
+    def get_all_tools(self) -> list[Tool]:
         return list(self._tools.values())
 
-    def to_openai_format(self) -> List[Dict[str, Any]]:
+    def to_openai_format(self) -> list[dict[str, Any]]:
         """Get tools in OpenAI function calling format."""
         return [tool.to_openai_format() for tool in self._tools.values()]
 

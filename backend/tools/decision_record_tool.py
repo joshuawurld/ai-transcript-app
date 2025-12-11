@@ -1,10 +1,9 @@
 """DecisionRecordTool - captures Architecture Decision Records (ADRs) from meeting transcripts."""
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from github_integration import create_github_issue
+from github_integration import write_issue
 
 from .base import Tool
 
@@ -35,6 +34,8 @@ DO NOT use this tool for:
 - Meetings with action items and deadlines (use create_calendar_reminder instead)
 - Production incidents or emergencies (use generate_incident_report instead)
 - Status updates without decisions (no tool needed)
+
+DO NOT use any other tools when using this tool. Only ONE tool should be used per transcript.
 
 Extract and organize:
 - What decision was made
@@ -142,16 +143,14 @@ Creates a structured ADR document for knowledge base and future reference."""
             ],
         }
 
-    def execute(self, tool_input: dict[str, Any]) -> dict[str, Any]:
+    async def execute(self, tool_input: dict[str, Any]) -> dict[str, Any]:
         """Execute the tool - generate markdown file and return structured JSON data."""
         print(f"\n[decision] Recording decision: '{tool_input['decision_title']}'")
         print(f"[decision] Status: {tool_input.get('status', 'accepted')}, Date: {tool_input.get('decision_date')}")
 
         try:
-            DECISION_RECORDS_DIR.mkdir(exist_ok=True)
-
             markdown = build_decision_record_markdown(tool_input)
-            filepath = self._save_markdown(tool_input['decision_title'], markdown)
+            filepath = self._save_markdown(DECISION_RECORDS_DIR, tool_input['decision_title'], markdown)
 
             print(f"[decision] ✓ Saved ADR to {filepath.name}")
 
@@ -163,9 +162,9 @@ Creates a structured ADR document for knowledge base and future reference."""
             }
 
             # Create GitHub issue (if configured)
-            github_result = create_github_issue("decision_record", tool_input)
+            github_result = await write_issue("decision_record", tool_input)
             if github_result:
-                result["github_issues"] = [github_result]
+                result["github_issue"] = github_result
 
             return result
 
@@ -176,17 +175,6 @@ Creates a structured ADR document for knowledge base and future reference."""
                 "message": f"Failed to capture decision record: {str(e)}",
                 "data": tool_input,
             }
-
-    def _save_markdown(self, title: str, content: str) -> Path:
-        """Save markdown to file and return filepath."""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "-", "_")).strip()
-        safe_title = safe_title.replace(" ", "_")[:50]
-        filename = f"{timestamp}_{safe_title}.md"
-        filepath = DECISION_RECORDS_DIR / filename
-
-        filepath.write_text(content, encoding='utf-8')
-        return filepath
 
 
 # Formatting helper functions (implementation details)

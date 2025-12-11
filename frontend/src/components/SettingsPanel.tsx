@@ -1,4 +1,4 @@
-import { Sparkles, ChevronDown, ChevronUp, Settings } from 'lucide-react';
+import { Sparkles, ChevronDown, ChevronUp, Settings, GitBranch } from 'lucide-react';
 import styles from './SettingsPanel.module.css';
 import { useState } from 'react';
 import { TextBox } from './TextBox';
@@ -24,6 +24,23 @@ export function SettingsPanel({
   onPromptChange,
 }: Props) {
   const [isPromptExpanded, setIsPromptExpanded] = useState(false);
+  const [isReviewingIssues, setIsReviewingIssues] = useState(false);
+  const [reviewStarted, setReviewStarted] = useState(false);
+
+  const handleReviewIssues = async () => {
+    setIsReviewingIssues(true);
+    setReviewStarted(true);
+
+    try {
+      await fetch('/api/review-issues', {
+        method: 'POST',
+      });
+    } catch {
+      // Errors will be visible in terminal
+    } finally {
+      setIsReviewingIssues(false);
+    }
+  };
 
   return (
     <Box header="Settings" icon={Settings}>
@@ -102,6 +119,32 @@ export function SettingsPanel({
           )}
         </div>
       )}
+
+      {/* GitHub Issue Review - MCP Demo */}
+      <div className={styles.issueReviewSection}>
+        <div className={styles.issueReviewHeader}>
+          <GitBranch className={styles.toggleIcon} />
+          <span className={styles.issueReviewTitle}>GitHub Issue Review</span>
+          <span className={styles.mcpBadge}>MCP</span>
+        </div>
+        <p className={styles.description}>
+          Autonomous agent that discovers and reviews issues via MCP
+        </p>
+        <button
+          className={styles.reviewButton}
+          onClick={() => void handleReviewIssues()}
+          disabled={isReviewingIssues}
+          type="button"
+        >
+          {isReviewingIssues ? 'Agent Running...' : 'Start Issue Review Agent'}
+        </button>
+
+        {reviewStarted && (
+          <p className={styles.terminalNote}>
+            See terminal for agent output
+          </p>
+        )}
+      </div>
     </Box>
   );
 }

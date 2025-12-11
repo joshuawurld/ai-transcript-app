@@ -106,6 +106,66 @@
   font-style: italic;
 }
 
+/* GitHub Issue Review Section */
+.issueReviewSection {
+  border-top: 1px solid rgba(91, 159, 245, 0.15);
+  padding-top: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.issueReviewHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.issueReviewTitle {
+  font-weight: var(--font-weight-medium);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.mcpBadge {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-secondary);
+  background: rgba(139, 92, 246, 0.15);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.reviewButton {
+  margin-top: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-primary);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--transition-base), transform var(--transition-base);
+}
+
+.reviewButton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.reviewButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.terminalNote {
+  margin-top: var(--space-3);
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+}
+
 /* Mobile responsive */
 @media (max-width: 640px) {
   .description {
@@ -115,5 +175,10 @@
 
   .toggleSection {
     margin-bottom: var(--space-3);
+  }
+
+  .issueReviewSection {
+    padding-top: var(--space-3);
+    margin-top: var(--space-3);
   }
 }

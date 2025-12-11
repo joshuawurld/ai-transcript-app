@@ -68,7 +68,17 @@ export function AgentResults({ toolCalls, results, summary, error, isProcessing 
         {/* Summary from agent */}
         {summary && (
           <div className={styles.summary}>
-            <ReactMarkdown>{summary}</ReactMarkdown>
+            <ReactMarkdown
+              components={{
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {summary}
+            </ReactMarkdown>
           </div>
         )}
 

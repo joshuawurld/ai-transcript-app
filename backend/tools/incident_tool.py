@@ -1,10 +1,9 @@
 """IncidentTool - captures structured incident reports for production issues."""
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from github_integration import create_github_issue
+from github_integration import write_issue
 
 from .base import Tool
 
@@ -30,6 +29,8 @@ Use this tool when the transcript describes:
 - Emergency response calls
 - Critical issues affecting users or revenue
 - Post-mortem discussions
+
+DO NOT use any other tools when using this tool. Incident reports are comprehensive and include action items, so no separate calendar reminder is needed.
 
 Extract and organize:
 - Incident title and severity level
@@ -173,17 +174,15 @@ Creates a comprehensive incident report for documentation and review."""
             ],
         }
 
-    def execute(self, tool_input: dict[str, Any]) -> dict[str, Any]:
+    async def execute(self, tool_input: dict[str, Any]) -> dict[str, Any]:
         """Execute the tool - generate markdown file and return structured JSON data."""
         severity = tool_input.get("severity", "medium").upper()
         print(f"\n[incident] Processing incident: '{tool_input['incident_title']}'")
         print(f"[incident] Severity: {severity}, Status: {tool_input.get('resolution_time', 'ongoing')}")
 
         try:
-            INCIDENT_REPORTS_DIR.mkdir(exist_ok=True)
-
             markdown = build_incident_report_markdown(tool_input)
-            filepath = self._save_markdown(tool_input['incident_title'], markdown)
+            filepath = self._save_markdown(INCIDENT_REPORTS_DIR, tool_input['incident_title'], markdown)
 
             print(f"[incident] ✓ Saved report to {filepath.name}")
 
@@ -195,9 +194,9 @@ Creates a comprehensive incident report for documentation and review."""
             }
 
             # Create GitHub issue (if configured)
-            github_result = create_github_issue("incident_report", tool_input)
+            github_result = await write_issue("incident_report", tool_input)
             if github_result:
-                result["github_issues"] = [github_result]
+                result["github_issue"] = github_result
 
             return result
 
@@ -208,17 +207,6 @@ Creates a comprehensive incident report for documentation and review."""
                 "message": f"Failed to capture incident report: {str(e)}",
                 "data": tool_input,
             }
-
-    def _save_markdown(self, title: str, content: str) -> Path:
-        """Save markdown to file and return filepath."""
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_title = "".join(c for c in title if c.isalnum() or c in (" ", "-", "_")).strip()
-        safe_title = safe_title.replace(" ", "_")[:50]
-        filename = f"{timestamp}_{safe_title}.md"
-        filepath = INCIDENT_REPORTS_DIR / filename
-
-        filepath.write_text(content, encoding='utf-8')
-        return filepath
 
 
 # Formatting helper functions (implementation details)

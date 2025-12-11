@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
-from github_integration import create_github_issues_batch
+from github_integration import write_issue
 
 from .base import Tool
 
@@ -24,6 +24,18 @@ class CalendarTool(Tool):
     @property
     def description(self) -> str:
         return """Create a calendar reminder with comprehensive meeting details from transcript.
+
+Use this tool ONLY for regular meetings like:
+- Standups, planning sessions, retrospectives
+- Status updates and check-ins
+- Brainstorming or review meetings
+- Client calls and interviews
+
+DO NOT use this tool if the transcript is about:
+- Production incidents or outages (use generate_incident_report instead)
+- Architecture or strategic decisions (use create_decision_record instead)
+
+Only ONE tool should be used per transcript.
 
 Extract and organize:
 - Meeting type and summary
@@ -114,7 +126,7 @@ Creates a .ics calendar file with all meeting context for easy reference."""
             "required": ["meeting_title", "meeting_type", "meeting_summary", "key_points", "action_items", "reminder_date"],
         }
 
-    def execute(self, tool_input: dict[str, Any]) -> dict[str, Any]:
+    async def execute(self, tool_input: dict[str, Any]) -> dict[str, Any]:
         """Execute the tool - generate valid ICS file from LLM-provided JSON."""
         print(f"\n[calendar] Processing '{tool_input['meeting_title']}' ({tool_input['meeting_type']})")
         print(f"[calendar] {len(tool_input.get('action_items', []))} action items, reminder on {tool_input['reminder_date']}")
@@ -146,27 +158,10 @@ Creates a .ics calendar file with all meeting context for easy reference."""
                 "data": tool_input,
             }
 
-            # Create GitHub issues for all action items in parallel (if configured)
-            action_items = tool_input.get("action_items", [])
-
-            if action_items:
-                tasks_data = [
-                    {
-                        "meeting_title": tool_input["meeting_title"],
-                        "meeting_type": tool_input.get("meeting_type", "other"),
-                        "task": action.get("task"),
-                        "owner": action.get("owner", "Unassigned"),
-                        "due_date": action.get("due_date", "No due date"),
-                        "priority": action.get("priority", "medium"),
-                        "context": tool_input.get("meeting_summary", ""),
-                        "key_points": tool_input.get("key_points", []),
-                    }
-                    for action in action_items
-                ]
-                github_issues = create_github_issues_batch("task", tasks_data)
-
-                if github_issues:
-                    result["github_issues"] = github_issues
+            # Create a single GitHub issue with all meeting details (if configured)
+            github_result = await write_issue("meeting_summary", tool_input)
+            if github_result:
+                result["github_issue"] = github_result
 
             return result
 

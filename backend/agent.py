@@ -64,23 +64,25 @@ def create_meeting_agent() -> Agent[AgentDeps, str]:
         # Static instructions - core behavior that doesn't change
         instructions="""You are a meeting assistant that processes transcripts and extracts structured information.
 
-Analyze the transcript and call the appropriate tool(s) to extract relevant information.
+Analyze the transcript and call the single most appropriate tool:
+- Production incidents, outages, emergencies → generate_incident_report
+- Architecture/strategic decisions → create_decision_record
+- Regular meetings with action items → create_calendar_reminder
 
-**Important**: You can call MULTIPLE tools for the same transcript if appropriate:
-- Incident call -> incident report + calendar (for follow-up actions)
-- Architecture review with implementation tasks -> decision record + calendar
-- But if a meeting is ONLY about decisions (no immediate tasks) -> decision record ONLY
+**IMPORTANT: Only call ONE tool per transcript.** Each tool creates a comprehensive record including action items, so no additional tools are needed.
 
 For calendar reminders: If the transcript mentions specific deadlines, set reminder_date 1-2 days before the earliest deadline. Otherwise use one week from today. Always use YYYY-MM-DD format.
 
 After processing, provide a well-formatted summary using Markdown:
 - A brief opening sentence about what you found
 - A bulleted list of actions taken (use **bold** for key items)
+- If a GitHub issue was created, include it as a clickable Markdown link: [View Issue](URL)
 - Any next steps for the user
 
 Use proper Markdown formatting:
 - Use **bold** for emphasis on important items
 - Use bullet points (`-`) for lists
+- Format URLs as clickable links: `[text](url)`
 - Keep paragraphs separated with blank lines
 - Be concise but clear (3-5 short paragraphs or bullet sections)
 
@@ -124,14 +126,19 @@ IMPORTANT: Do NOT use emojis or excited openings like "Analysis Complete!" or "G
         print(f"\n[calendar] Creating reminder: '{input_data.meeting_title}'")
         print(f"[calendar] {len(input_data.action_items)} action items")
 
-        result = _calendar_tool.execute(input_data.model_dump())
+        result = await _calendar_tool.execute(input_data.model_dump())
         ctx.deps.tool_results.append(result)  # Store full result for frontend
 
         if result["status"] == "success":
-            return (
+            msg = (
                 f"Created calendar reminder '{input_data.meeting_title}' "
                 f"for {input_data.reminder_date} with {len(input_data.action_items)} action items."
             )
+            # Include GitHub issue URL if created
+            github_issue = result.get("github_issue", {})
+            if github_issue.get("status") == "success":
+                msg += f" GitHub issue created: {github_issue['issue_url']}"
+            return msg
         return f"Failed to create calendar reminder: {result.get('message', 'Unknown error')}"
 
     @agent.tool
@@ -149,15 +156,20 @@ IMPORTANT: Do NOT use emojis or excited openings like "Analysis Complete!" or "G
         print(f"\n[incident] Generating report: '{input_data.incident_title}'")
         print(f"[incident] Severity: {input_data.severity}")
 
-        result = _incident_tool.execute(input_data.model_dump())
+        result = await _incident_tool.execute(input_data.model_dump())
         ctx.deps.tool_results.append(result)  # Store full result for frontend
 
         if result["status"] == "success":
-            return (
+            msg = (
                 f"Generated incident report for '{input_data.incident_title}' "
                 f"(Severity: {input_data.severity.upper()}). "
                 f"Root cause: {input_data.root_cause[:100]}..."
             )
+            # Include GitHub issue URL if created
+            github_issue = result.get("github_issue", {})
+            if github_issue.get("status") == "success":
+                msg += f" GitHub issue created: {github_issue['issue_url']}"
+            return msg
         return f"Failed to generate incident report: {result.get('message', 'Unknown error')}"
 
     @agent.tool
@@ -179,15 +191,20 @@ IMPORTANT: Do NOT use emojis or excited openings like "Analysis Complete!" or "G
         print(f"\n[decision] Recording: '{input_data.decision_title}'")
         print(f"[decision] Status: {input_data.status}")
 
-        result = _decision_tool.execute(input_data.model_dump())
+        result = await _decision_tool.execute(input_data.model_dump())
         ctx.deps.tool_results.append(result)  # Store full result for frontend
 
         if result["status"] == "success":
             options_count = len(input_data.options_considered)
-            return (
+            msg = (
                 f"Created decision record for '{input_data.decision_title}' "
                 f"({options_count} options considered, decision: {input_data.status})."
             )
+            # Include GitHub issue URL if created
+            github_issue = result.get("github_issue", {})
+            if github_issue.get("status") == "success":
+                msg += f" GitHub issue created: {github_issue['issue_url']}"
+            return msg
         return f"Failed to create decision record: {result.get('message', 'Unknown error')}"
 
     return agent
