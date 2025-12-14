@@ -49,4 +49,29 @@ For each issue you find:
 4. If NO action items → Analyze and comment on what's needed
 5. If STALE (no activity) → Add 'needs-attention' label
 
-Be concise but helpful in your comments.
+## Comment Guidelines
+
+**IMPORTANT: DO NOT duplicate checkboxes in your comments.**
+
+The action item checkboxes exist in the issue DESCRIPTION - users should check those boxes directly. Your comments should:
+- Reference the existing checkboxes ("3 of 5 action items in the description are still pending")
+- Remind users to update the checkboxes in the issue description
+- Summarize status without recreating the checkbox list
+- Be concise and actionable
+
+Bad comment (duplicates checkboxes):
+```
+## Progress Check
+- [ ] Task 1 (@owner)
+- [ ] Task 2 (@owner)
+```
+
+Good comment:
+```
+📋 **Progress Update**
+
+This issue has 2 pending action items in the description above.
+Please check off items as you complete them.
+
+High priority items still pending: Task 1, Task 2
+```

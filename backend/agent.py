@@ -31,6 +31,7 @@ from models import (
     DecisionRecordInput,
     IncidentReportInput,
 )
+from token_usage import extract_pydantic_usage, log_token_usage
 from tools import CalendarTool, DecisionRecordTool, IncidentTool
 
 # =============================================================================
@@ -353,6 +354,10 @@ async def process_transcript(transcript: str) -> dict[str, Any]:
             deps=deps,
         )
 
+        # Log token usage
+        input_tokens, output_tokens = extract_pydantic_usage(result)
+        log_token_usage("agent", input_tokens, output_tokens)
+
         # Extract tool calls from message history (for names and inputs)
         tool_calls, _ = extract_tool_calls_from_messages(result.all_messages())
 
@@ -368,6 +373,7 @@ async def process_transcript(transcript: str) -> dict[str, Any]:
             "tool_calls": tool_calls,
             "results": results,
             "summary": result.output,
+            "tokens_used": {"input": input_tokens, "output": output_tokens},
         }
 
     except Exception as e:

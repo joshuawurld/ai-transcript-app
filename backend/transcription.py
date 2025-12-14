@@ -12,6 +12,7 @@ from faster_whisper import WhisperModel
 from openai import OpenAI
 
 from agent import process_transcript
+from token_usage import extract_openai_usage, log_token_usage
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 SYSTEM_PROMPT = (PROMPTS_DIR / "transcript_cleaner.txt").read_text().strip()
@@ -98,6 +99,10 @@ class TranscriptionService:
                 temperature=0.3,
                 max_tokens=200,
             )
+
+            # Log token usage
+            input_tokens, output_tokens = extract_openai_usage(response)
+            log_token_usage("clean", input_tokens, output_tokens)
 
             cleaned = response.choices[0].message.content.strip()
             print(f"✨ Cleaned: {cleaned}")

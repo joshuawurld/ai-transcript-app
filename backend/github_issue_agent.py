@@ -26,7 +26,7 @@ This is the key difference from REST:
 Usage:
     from github_issue_agent import review_issues
 
-    # Called from /api/review-issues endpoint
+    # Called from /api/process-issues-agent endpoint
     results = await review_issues()
 """
 
@@ -42,6 +42,8 @@ from mcp.client.streamable_http import streamablehttp_client
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.providers.openai import OpenAIProvider
+
+from token_usage import TokenUsage, extract_pydantic_usage, log_token_usage
 
 # =============================================================================
 # Constants and Prompts
@@ -313,98 +315,55 @@ async def _run_autonomous_loop(
 
     We keep calling the agent until it signals is_fully_complete.
     """
-    iteration = 0
-    total_tokens = {"input": 0, "output": 0}
+    tokens = TokenUsage()
     total_tool_calls = 0
 
     print("\n" + "=" * 70)
-    print("[AUTONOMOUS AGENT] Starting fully autonomous issue review")
-    print(f"[AUTONOMOUS AGENT] Repository: {deps.owner}/{deps.repo}")
-    print(f"[AUTONOMOUS AGENT] Looking for label: '{TRANSCRIPT_APP_LABEL}'")
-    print(f"[AUTONOMOUS AGENT] Max iterations: {MAX_ITERATIONS}")
-    print(f"[AUTONOMOUS AGENT] Available MCP tools: {len(deps.available_tools)}")
+    print("[AGENT] Starting autonomous issue review")
+    print(f"[AGENT] Repository: {deps.owner}/{deps.repo}")
+    print(f"[AGENT] Looking for label: '{TRANSCRIPT_APP_LABEL}'")
+    print(f"[AGENT] Available MCP tools: {len(deps.available_tools)}")
     print("=" * 70)
 
     # Initial prompt from template
     prompt = _build_task_prompt(deps.available_tools, deps.owner, deps.repo)
 
-    while not deps.is_fully_complete and iteration < MAX_ITERATIONS:
-        iteration += 1
-        print("\n" + "-" * 60)
-        print(f"[ITERATION {iteration}/{MAX_ITERATIONS}]")
-        print("-" * 60)
+    # Safety limit to prevent runaway loops
+    for attempt in range(MAX_ITERATIONS):
+        if deps.is_fully_complete:
+            break
 
-        if iteration > 1:
+        if attempt > 0:
             prompt = _build_continuation_prompt(len(deps.issues_reviewed))
 
-        print(f"[PROMPT] {prompt[:100]}...")
-
         try:
-            print("[LLM] Sending request to model...")
             result = await agent.run(prompt, deps=deps)
 
-            # Extract token usage if available
-            if hasattr(result, "usage") and result.usage:
-                usage = result.usage
-                input_tokens = getattr(usage, "input_tokens", 0) or getattr(
-                    usage, "prompt_tokens", 0
-                )
-                output_tokens = getattr(usage, "output_tokens", 0) or getattr(
-                    usage, "completion_tokens", 0
-                )
-                total_tokens["input"] += input_tokens
-                total_tokens["output"] += output_tokens
-                print(
-                    f"[TOKENS] This iteration: {input_tokens} in / {output_tokens} out"
-                )
-                print(
-                    f"[TOKENS] Running total: "
-                    f"{total_tokens['input']} in / {total_tokens['output']} out"
-                )
+            # Log token usage
+            input_tokens, output_tokens = extract_pydantic_usage(result)
+            log_token_usage("issue-review", input_tokens, output_tokens, tokens)
 
             # Count tool calls
-            if hasattr(result, "all_messages"):
-                for msg in result.all_messages():
-                    if hasattr(msg, "parts"):
-                        for part in msg.parts:
-                            if hasattr(part, "tool_name"):
-                                total_tool_calls += 1
-
-            # Show agent's response
-            response = result.output[:200] if result.output else "(no output)"
-            print(f"[RESPONSE] {response}...")
-
-            # Check status
-            if deps.is_fully_complete:
-                print("[STATUS] Agent signaled ALL REVIEWS COMPLETE")
-            else:
-                reviewed_count = len(deps.issues_reviewed)
-                print(f"[STATUS] Continuing... ({reviewed_count} issues reviewed)")
+            usage = result.usage()
+            total_tool_calls += usage.tool_calls or 0
 
         except Exception as e:
-            print(f"[ERROR] Iteration {iteration} failed: {e}")
+            print(f"[ERROR] Agent run failed: {e}")
             import traceback
-
             traceback.print_exc()
             continue
 
     # Final summary
     print("\n" + "=" * 70)
-    print("[AUTONOMOUS AGENT COMPLETE]")
+    print("[AGENT COMPLETE]")
     print("=" * 70)
 
-    if deps.is_fully_complete:
-        print("[RESULT] Agent completed all reviews successfully")
-    else:
-        print(f"[RESULT] Hit max iterations ({MAX_ITERATIONS})")
+    if not deps.is_fully_complete:
+        print(f"[WARNING] Hit safety limit ({MAX_ITERATIONS} runs)")
 
-    print(f"[RESULT] Total iterations: {iteration}")
-    print(f"[RESULT] Total MCP tool calls: {total_tool_calls}")
     print(f"[RESULT] Issues reviewed: {len(deps.issues_reviewed)}")
-    print(
-        f"[RESULT] Tokens used: "
-        f"{total_tokens['input']} input / {total_tokens['output']} output"
-    )
+    print(f"[RESULT] Tool calls: {total_tool_calls}")
+    print(f"[RESULT] Tokens: {tokens}")
 
     if deps.issues_reviewed:
         print("[RESULT] Issues breakdown:")
@@ -414,10 +373,9 @@ async def _run_autonomous_loop(
 
     return {
         "success": True,
-        "iterations": iteration,
         "issues_reviewed": deps.issues_reviewed,
-        "total_tool_calls": total_tool_calls,
-        "tokens_used": total_tokens,
+        "tool_calls": total_tool_calls,
+        "tokens_used": tokens.to_dict(),
         "completed": deps.is_fully_complete,
     }
 
@@ -465,8 +423,17 @@ async def review_issues() -> dict[str, Any]:
     print("[SETUP] Connecting to GitHub MCP server...")
     print("=" * 70)
 
-    def httpx_client_factory():
-        return httpx.AsyncClient(headers={"Authorization": f"Bearer {token}"})
+    def httpx_client_factory(
+        headers: dict[str, str] | None = None,
+        timeout: httpx.Timeout | None = None,
+        auth: httpx.Auth | None = None,
+    ) -> httpx.AsyncClient:
+        """Custom HTTP client factory with GitHub auth header."""
+        # Merge auth header with any headers passed by MCP
+        merged_headers = {"Authorization": f"Bearer {token}"}
+        if headers:
+            merged_headers.update(headers)
+        return httpx.AsyncClient(headers=merged_headers, timeout=timeout, auth=auth)
 
     try:
         async with (

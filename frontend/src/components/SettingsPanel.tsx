@@ -32,7 +32,7 @@ export function SettingsPanel({
     setReviewStarted(true);
 
     try {
-      await fetch('/api/review-issues', {
+      await fetch('/api/process-issues-agent', {
         method: 'POST',
       });
     } catch {

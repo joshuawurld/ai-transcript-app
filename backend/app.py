@@ -124,9 +124,9 @@ async def clean_text(request: CleanRequest):
         raise HTTPException(status_code=500, detail=f"Cleaning failed: {str(e)}") from e
 
 
-@app.post("/api/process-agent")
-async def process_with_agent(request: AgentRequest):
-    """PydanticAI agent processing - type-safe tool selection and execution."""
+@app.post("/api/process-transcript-agent")
+async def process_transcript_agent(request: AgentRequest):
+    """PydanticAI agent for transcript processing - analyzes and extracts structured data."""
     if not service:
         raise HTTPException(status_code=503, detail="Service not ready")
 
@@ -142,14 +142,14 @@ async def process_with_agent(request: AgentRequest):
         ) from e
 
 
-@app.post("/api/review-issues")
-async def review_github_issues():
-    """Review GitHub issues using MCP-powered agent.
+@app.post("/api/process-issues-agent")
+async def process_issues_agent():
+    """MCP-powered agent for reviewing GitHub issues.
 
     This endpoint demonstrates MCP's value proposition:
     - Dynamic tool discovery via list_tools()
     - LLM decides which discovered tools to use
-    - Compare to /api/process-agent which uses REST for issue creation
+    - Compare to /api/process-transcript-agent which uses REST for issue creation
 
     The agent reviews issues with 'transcript-app' label and can:
     - Add status comments

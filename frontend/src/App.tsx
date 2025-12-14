@@ -92,7 +92,7 @@ function App() {
       setIsProcessingAgent(true);
       setAgentResults(null);
 
-      const response = await fetch('/api/process-agent', {
+      const response = await fetch('/api/process-transcript-agent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
