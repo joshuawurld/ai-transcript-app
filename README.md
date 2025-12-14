@@ -5,7 +5,25 @@ AI-powered voice transcription with Whisper and LLM cleaning. Browser-based reco
 
 **📺 Recommended Video Tutorial:** For project structure and API details, watch the full tutorial on YouTube: https://youtu.be/WUo5tKg2lnE
 
-**Agentic Branch:** Switch to the branch `checkpoint-agentic-openrouter` to build on the agentic demo from the full video on YouTube: https://youtu.be/uR_lvAZFBw0
+---
+
+## Branches
+
+This repository uses checkpoint branches to progressively teach AI engineering concepts:
+
+| Branch | Description | Builds On | Learning Resource |
+|--------|-------------|-----------|-------------------|
+| `main` | Complete transcript app with Whisper + LLM cleaning (runs fully locally, beginner friendly) | — | [YouTube Tutorial](https://youtu.be/WUo5tKg2lnE) |
+| `checkpoint-1-fundamentals` | Exercise generation system for learning Python/TypeScript fundamentals | — | [Classroom](https://aiengineer.community/join) |
+| `checkpoint-agentic-openrouter` | Agentic workflow with autonomous tool selection | `main` | [Classroom](https://aiengineer.community/join) |
+| `checkpoint-pydanticai-openrouter` | PydanticAI framework for structured agent development | `checkpoint-agentic-openrouter` | [Classroom](https://aiengineer.community/join) |
+| `checkpoint-rest-mcp-openrouter` | MCP integration with REST API and GitHub Issues | `checkpoint-pydanticai-openrouter` | [Classroom](https://aiengineer.community/join) |
+
+> **Why "openrouter" in branch names?** These branches use [OpenRouter](https://openrouter.ai/) to access powerful cloud models that reliably support tool/function calling. Small local models struggle with agentic workflows.
+
+Switch branches with: `git checkout <branch-name>`
+
+---
 
 **Features:**
 
@@ -29,7 +47,7 @@ For example:
 
 **📚 Need help and want to learn more?**
 
-Full courses on AI Engineering are available at [https://www.skool.com/ai-engineer](https://www.skool.com/ai-engineer)
+Full courses on AI Engineering are available at [https://aiengineer.community/join](https://aiengineer.community/join)
 
 ---
 
