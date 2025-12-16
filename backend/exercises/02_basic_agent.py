@@ -13,7 +13,7 @@ By the end, you'll understand:
 Difficulty: Beginner
 Time: ~30 minutes
 
-Run: uv run python exercises/02_basic_agent_v2.py
+Run: uv run python exercises/02_basic_agent.py
 
 📚 DOCUMENTATION LINKS:
 - PydanticAI Agents: https://ai.pydantic.dev/agents/
@@ -45,7 +45,12 @@ Run: uv run python exercises/02_basic_agent_v2.py
 #     components of a PydanticAI Agent"
 # =============================================================================
 
+import json
+
+from pydantic import BaseModel, Field, field_validator
 from pydantic_ai import Agent
+from pydantic_ai.messages import ModelMessage, ModelResponse, ToolCallPart
+from pydantic_ai.models.function import AgentInfo, FunctionModel
 from pydantic_ai.models.test import TestModel
 
 # =============================================================================
@@ -59,10 +64,8 @@ from pydantic_ai.models.test import TestModel
 #   - Writing tests for your agent code
 #   - Debugging agent logic
 #
-# In production, you'd use a real model like:
-#   - "openai:gpt-4o"
-#   - "anthropic:claude-sonnet-4-20250514"
-#   - "groq:llama-3.3-70b-versatile"
+# To see how to connect to a real LLM, check out backend/agent.py
+# It uses OpenRouter with the OpenAI-compatible API format.
 #
 # 📚 Docs: https://ai.pydantic.dev/models/
 # =============================================================================
@@ -95,8 +98,7 @@ def create_simple_agent() -> Agent[None, str]:
     agent: Agent[None, str] = Agent(
         model,
         instructions=(
-            "You are a helpful assistant. "
-            "Be concise and friendly in your responses."
+            "You are a helpful assistant. Be concise and friendly in your responses."
         ),
     )
 
@@ -131,7 +133,7 @@ def demo_running_agent():
     # run_sync() sends a message and waits for the response
     result = agent.run_sync("Hello!")
 
-    print(f"\nInput: 'Hello!'")
+    print("\nInput: 'Hello!'")
     print(f"Output: {result.output}")
     print(f"Output type: {type(result.output).__name__}")
 
@@ -231,11 +233,211 @@ def demo_agent_overhead():
     print("\n💡 Neither is 'better' - choose based on your needs!")
 
 
+# =============================================================================
+# CONCEPT: The Retry Loop - Why Validators Matter for AI
+# =============================================================================
+#
+# One of the most POWERFUL features of PydanticAI is automatic retries
+# when validation fails. Here's what happens:
+#
+#   1. You ask the agent to return structured data (output_type=SomeModel)
+#   2. The LLM generates data
+#   3. Pydantic validates it
+#   4. If validation FAILS:
+#      a. PydanticAI catches the ValidationError
+#      b. Sends the error message BACK to the LLM
+#      c. The LLM gets a chance to CORRECT its mistake
+#      d. Repeat until valid (or max retries reached)
+#
+# This is WHY your validator error messages matter - the LLM reads them!
+#
+#   ❌ Bad:  raise ValueError("Invalid")
+#   ✅ Good: raise ValueError("hours must be positive, got -5. Use a positive number.")
+#
+# The demo below shows this ACTUALLY HAPPENING with a mock LLM.
+#
+# 📚 Docs: https://ai.pydantic.dev/agents/#retries
+# =============================================================================
+
+
+# =============================================================================
+# CONCEPT: What is "final_result"? (How Structured Output Works Internally)
+# =============================================================================
+#
+# When you set output_type on an agent, PydanticAI doesn't just tell the LLM
+# "return this JSON structure." It actually creates a HIDDEN TOOL called
+# "final_result" that the LLM calls to return structured data.
+#
+#   agent = Agent(model, output_type=MyModel)  # Under the hood...
+#   # PydanticAI creates: tool "final_result" with MyModel as input schema
+#
+# This is why the retry demo below uses tool_name="final_result":
+#
+#   ToolCallPart(
+#       tool_name="final_result",  # <-- This is the hidden tool!
+#       args=json.dumps({"task": "...", "hours": -5}),
+#       ...
+#   )
+#
+# The flow looks like this:
+#
+#   1. Agent has output_type=ValidatedTask
+#   2. LLM sees "final_result" tool with ValidatedTask schema
+#   3. LLM calls final_result(task="...", hours=-5)
+#   4. PydanticAI validates using ValidatedTask model
+#   5. Validation fails → error sent back to LLM
+#   6. LLM retries with final_result(task="...", hours=2)
+#   7. Validation passes → result.output is a ValidatedTask instance
+#
+# This is an implementation detail, but understanding it helps you:
+#   - Understand why the mock model returns ToolCallPart
+#   - Debug when structured output isn't working
+#   - Understand the relationship between tools and output_type
+#
+# =============================================================================
+
+
+# --- Pydantic model with validation ---
+class ValidatedTask(BaseModel):
+    """A task with strict validation - hours MUST be positive."""
+
+    task: str = Field(description="The task description")
+    hours: float = Field(description="Estimated hours to complete")
+
+    @field_validator("hours")
+    @classmethod
+    def hours_must_be_positive(cls, v):
+        if v <= 0:
+            # This message is sent to the LLM on retry!
+            raise ValueError(
+                f"hours must be positive (you provided {v}). "
+                f"Please use a positive number like 0.5, 1, 2, or 4."
+            )
+        return v
+
+
+# --- State tracker for the demo ---
+_retry_demo_calls = 0
+
+
+async def _retry_demo_model(
+    _messages: list[ModelMessage], _info: AgentInfo
+) -> ModelResponse:
+    """A mock LLM that returns INVALID data first, then VALID data on retry.
+
+    This simulates what happens with a real LLM when validation fails.
+    """
+    global _retry_demo_calls
+    _retry_demo_calls += 1
+
+    print(f"\n  📤 LLM Response #{_retry_demo_calls}")
+
+    if _retry_demo_calls == 1:
+        # FIRST RESPONSE: Return invalid data (negative hours)
+        print("     → Returning: hours = -5 (INVALID)")
+        print("       This will FAIL Pydantic validation!")
+        return ModelResponse(
+            parts=[
+                ToolCallPart(
+                    tool_name="final_result",
+                    args=json.dumps(
+                        {
+                            "task": "Fix the authentication bug",
+                            "hours": -5,  # Invalid! Validator will reject this.
+                        }
+                    ),
+                    tool_call_id="call_1",
+                )
+            ]
+        )
+    # RETRY RESPONSE: The LLM "saw" the error and corrected itself
+    print("     → Returning: hours = 2 (VALID)")
+    print("       The LLM 'read' the error and fixed it!")
+    return ModelResponse(
+        parts=[
+            ToolCallPart(
+                tool_name="final_result",
+                args=json.dumps(
+                    {"task": "Fix the authentication bug", "hours": 2}  # Valid!
+                ),
+                tool_call_id="call_2",
+            )
+        ]
+    )
+
+
+def demo_retry_loop():
+    """
+    🔄 WATCH THE RETRY LOOP IN ACTION!
+
+    This is the most important demo - it shows WHY validators matter for AI.
+    The mock LLM intentionally returns invalid data first, and you can see
+    PydanticAI catch the error, send it back, and get corrected data.
+    """
+    global _retry_demo_calls
+    _retry_demo_calls = 0  # Reset state
+
+    print("\n" + "=" * 60)
+    print("🔄 DEMO: Watching the Retry Loop in Action")
+    print("=" * 60)
+
+    print(
+        """
+This demo shows the COMPLETE validation retry loop:
+
+  1. We ask the agent to extract a task (with hours estimate)
+  2. The mock LLM returns hours = -5 (INVALID!)
+  3. Pydantic validation FAILS with our helpful error message
+  4. PydanticAI sends the error BACK to the LLM
+  5. The LLM "reads" the error and returns hours = 2 (VALID!)
+  6. Validation passes - success!
+
+Watch the output below to see each step happen...
+"""
+    )
+
+    # Create agent with our mock model
+    mock_model = FunctionModel(_retry_demo_model)
+
+    agent: Agent[None, ValidatedTask] = Agent(
+        mock_model,
+        output_type=ValidatedTask,
+        retries=3,  # Allow up to 3 retries
+    )
+
+    print("-" * 60)
+    print("Running agent.run_sync()...")
+    print("-" * 60)
+
+    result = agent.run_sync("Extract: Fix the auth bug, about 2 hours work")
+
+    print("\n" + "-" * 60)
+    print("✅ SUCCESS!")
+    print("-" * 60)
+    print("\nFinal validated output:")
+    print(f"  task: {result.output.task}")
+    print(f"  hours: {result.output.hours}")
+    print(f"\nTotal LLM calls: {_retry_demo_calls}")
+
+    print(
+        """
+💡 KEY TAKEAWAYS:
+   - The validator's error message was sent to the LLM
+   - The LLM used that feedback to correct its output
+   - Your error messages should be HELPFUL (tell the LLM how to fix it)
+   - This "retry loop" makes validators powerful for AI applications!
+
+   This is what we explained in Exercise 1 - now you've SEEN it happen!
+"""
+    )
+
+
 if __name__ == "__main__":
     demo_running_agent()
     demo_custom_response()
     demo_multiple_runs()
     demo_agent_overhead()
+    demo_retry_loop()  # 🔄 The most important demo - shows validation retry!
 
     print("\n" + "=" * 60)
     print("DEMOS COMPLETE - Now try the exercises below!")
@@ -326,6 +528,14 @@ if __name__ == "__main__":
 #
 #   Q3: Why might you need access to the message history?
 #   A3: _____  (Hint: think about tool calls in Exercise 3)
+#
+# STEP 4: Check token usage (important for cost awareness!)
+#
+#   print(f"Usage: {result.usage()}")
+#   # Returns: Usage(requests=1, request_tokens=X, response_tokens=Y, total_tokens=Z)
+#
+#   Remember from Exercise 1: retries cost tokens! If the retry demo
+#   runs twice, you'd see request_tokens doubled compared to a single run.
 #
 # 🤖 Ask your AI assistant:
 #   - "Read https://ai.pydantic.dev/results/ and explain what's in

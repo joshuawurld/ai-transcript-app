@@ -13,7 +13,7 @@ can call to perform actions or retrieve information. By the end, you'll understa
 Difficulty: Intermediate
 Time: ~45 minutes
 
-Run: uv run python exercises/03_tools_v2.py
+Run: uv run python exercises/03_tools.py
 
 📚 DOCUMENTATION LINKS (bookmark these!):
 - PydanticAI Tools: https://ai.pydantic.dev/tools/
@@ -105,6 +105,7 @@ from pydantic_ai.models.test import TestModel
 # WORKING EXAMPLE: A Dice-Rolling Agent
 # =============================================================================
 
+
 def create_dice_agent() -> Agent[None, str]:
     """Create an agent that can roll dice."""
     model = TestModel()
@@ -158,6 +159,7 @@ def demo_tool_call():
 # =============================================================================
 # WORKING EXAMPLE: A Time-Checking Agent
 # =============================================================================
+
 
 def create_time_agent() -> Agent[None, str]:
     """Create an agent that can tell the time."""

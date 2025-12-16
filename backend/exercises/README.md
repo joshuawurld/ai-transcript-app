@@ -15,7 +15,7 @@ uv run python exercises/01_pydantic_models.py
 | --- | ----------------------- | --------------------------------------- | ------------ |
 | 1   | `01_pydantic_models.py` | Pydantic models with Field descriptions | Beginner     |
 | 2   | `02_basic_agent.py`     | Creating and running a PydanticAI agent | Beginner     |
-| 3   | `03_tools_simple.py`    | Adding tools with `@agent.tool_plain`   | Intermediate |
+| 3   | `03_tools.py`           | Adding tools with `@agent.tool_plain`   | Intermediate |
 | 4   | `04_dependencies.py`    | Dependency injection with `RunContext`  | Intermediate |
 | 5   | `05_full_pattern.py`    | Full pattern with Pydantic tool inputs  | Advanced     |
 

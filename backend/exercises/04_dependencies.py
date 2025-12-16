@@ -14,7 +14,7 @@ using dependency injection. By the end, you'll understand:
 Difficulty: Intermediate
 Time: ~45 minutes
 
-Run: uv run python exercises/04_dependencies_v2.py
+Run: uv run python exercises/04_dependencies.py
 
 📚 DOCUMENTATION LINKS (bookmark these!):
 - PydanticAI Dependencies: https://ai.pydantic.dev/dependencies/
@@ -105,12 +105,14 @@ from pydantic_ai.models.test import TestModel
 # WORKING EXAMPLE: Personalized Greeting Agent
 # =============================================================================
 
+
 @dataclass
 class UserContext:
     """Dependencies for a personalized agent.
 
     This data is passed at runtime when you call agent.run_sync().
     """
+
     user_name: str
     preferred_greeting: str = "Hello"
 
@@ -215,6 +217,7 @@ def demo_different_users():
 @dataclass
 class MutableDeps:
     """Dependencies with mutable state."""
+
     call_count: int = 0
     results: list[str] = field(default_factory=list)
 

@@ -13,7 +13,7 @@ the foundation for building AI agents. By the end, you'll understand:
 Difficulty: Beginner
 Time: ~30 minutes
 
-Run: uv run python exercises/01_pydantic_models_v2.py
+Run: uv run python exercises/01_pydantic_models.py
 
 📚 DOCUMENTATION LINKS (bookmark these!):
 - Pydantic Models: https://docs.pydantic.dev/latest/concepts/models/
@@ -53,7 +53,7 @@ Run: uv run python exercises/01_pydantic_models_v2.py
 import json
 from typing import Literal
 
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 # =============================================================================
 # CONCEPT: Field() and descriptions - talking to the LLM
@@ -82,19 +82,16 @@ class TaskItem(BaseModel):
     descriptions to understand what data to extract.
     """
 
-    task: str = Field(
-        description="The action item or task to be done"
-    )
+    task: str = Field(description="The action item or task to be done")
     owner: str = Field(
         description="Person responsible for this task (a real name, not 'TBD')"
     )
     priority: Literal["high", "medium", "low"] = Field(
         default="medium",
-        description="Priority level: high (urgent), medium (normal), low (backlog)"
+        description="Priority level: high (urgent), medium (normal), low (backlog)",
     )
     estimated_hours: float = Field(
-        default=1.0,
-        description="Estimated hours to complete (e.g., 0.5, 1, 2, 4)"
+        default=1.0, description="Estimated hours to complete (e.g., 0.5, 1, 2, 4)"
     )
 
 
@@ -258,8 +255,7 @@ class TaskItemWithValidation(BaseModel):
     owner: str = Field(description="Person responsible (a real name, not 'TBD')")
     priority: Literal["high", "medium", "low"] = Field(default="medium")
     estimated_hours: float = Field(
-        default=1.0,
-        description="Estimated hours to complete (must be positive)"
+        default=1.0, description="Estimated hours to complete (must be positive)"
     )
 
     @field_validator("estimated_hours")
@@ -308,29 +304,19 @@ def demo_field_validator():
 
     print("\nTrying estimated_hours=-5 (negative)...")
     try:
-        TaskItemWithValidation(
-            task="Do something",
-            owner="Alice",
-            estimated_hours=-5
-        )
+        TaskItemWithValidation(task="Do something", owner="Alice", estimated_hours=-5)
     except ValidationError as e:
         print(f"  ❌ ValidationError: {e.errors()[0]['msg']}")
 
     print("\nTrying estimated_hours=0 (zero)...")
     try:
-        TaskItemWithValidation(
-            task="Do something",
-            owner="Alice",
-            estimated_hours=0
-        )
+        TaskItemWithValidation(task="Do something", owner="Alice", estimated_hours=0)
     except ValidationError as e:
         print(f"  ❌ ValidationError: {e.errors()[0]['msg']}")
 
     print("\nTrying estimated_hours=2.5 (valid)...")
     task = TaskItemWithValidation(
-        task="Do something",
-        owner="Alice",
-        estimated_hours=2.5
+        task="Do something", owner="Alice", estimated_hours=2.5
     )
     print(f"  ✅ Created successfully: {task.estimated_hours} hours")
 

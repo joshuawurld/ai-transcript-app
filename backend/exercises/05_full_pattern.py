@@ -16,7 +16,7 @@ This is exactly how the main agent.py in this project works.
 Difficulty: Advanced
 Time: ~60 minutes
 
-Run: uv run python exercises/05_full_pattern_v2.py
+Run: uv run python exercises/05_full_pattern.py
 
 📚 DOCUMENTATION LINKS (bookmark these!):
 - PydanticAI Tools: https://ai.pydantic.dev/tools/
@@ -38,6 +38,30 @@ from pydantic import BaseModel, Field
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.messages import ModelResponse, ToolCallPart
 from pydantic_ai.models.test import TestModel
+
+# =============================================================================
+# CONCEPT: TestModel with Complex Pydantic Inputs
+# =============================================================================
+#
+# TestModel calls your tools, but fills in PLACEHOLDER data (not real extraction).
+# When a tool expects a Pydantic model like TaskSummaryInput, TestModel generates
+# minimal valid data: short strings like "a", single-item lists, etc.
+#
+# What you'll see in this exercise:
+#   - Tools ARE called (you'll see "[TOOL CALLED]" print statements)
+#   - Pydantic validation DOES run (invalid data would raise errors)
+#   - Dependencies ARE injected (dates, accumulated results)
+#   - Message history IS populated (tool calls can be extracted)
+#
+# What you WON'T see:
+#   - Intelligent extraction from the transcript (that requires a real LLM)
+#   - Meaningful meeting titles, summaries, or action items
+#
+# The STRUCTURE and FLOW are real - only the LLM "intelligence" is mocked.
+# To see real extraction, check out backend/agent.py which uses a real LLM.
+#
+# =============================================================================
+
 
 # =============================================================================
 # CONCEPT: When Do You Need This Full Pattern?
@@ -113,13 +137,14 @@ from pydantic_ai.models.test import TestModel
 # PART 1: Define Pydantic Models for Tool Inputs
 # =============================================================================
 
+
 class ActionItem(BaseModel):
     """A single action item - used nested in TaskSummaryInput."""
+
     task: str = Field(description="The action item or task to be done")
     owner: str = Field(description="Person responsible for this task")
     priority: Literal["high", "medium", "low"] = Field(
-        default="medium",
-        description="Priority level of the task"
+        default="medium", description="Priority level of the task"
     )
 
 
@@ -130,18 +155,14 @@ class TaskSummaryInput(BaseModel):
     based on the meeting transcript. The Field descriptions guide what
     the LLM extracts.
     """
-    meeting_title: str = Field(
-        description="Title of the meeting"
-    )
-    summary: str = Field(
-        description="Brief 1-2 sentence summary of what was discussed"
-    )
+
+    meeting_title: str = Field(description="Title of the meeting")
+    summary: str = Field(description="Brief 1-2 sentence summary of what was discussed")
     action_items: list[ActionItem] = Field(
         description="Action items extracted from the meeting, with owners and priorities"
     )
     next_steps: list[str] = Field(
-        default_factory=list,
-        description="Recommended next steps after the meeting"
+        default_factory=list, description="Recommended next steps after the meeting"
     )
 
 
@@ -149,12 +170,14 @@ class TaskSummaryInput(BaseModel):
 # PART 2: Define Dependencies
 # =============================================================================
 
+
 @dataclass
 class MeetingAgentDeps:
     """Dependencies for the meeting processing agent.
 
     This combines runtime context (dates) with mutable state (results).
     """
+
     # Runtime context - injected at call time
     current_date: str
     current_day: str
@@ -178,6 +201,7 @@ def create_deps() -> MeetingAgentDeps:
 # =============================================================================
 # PART 3: Create the Agent
 # =============================================================================
+
 
 def create_meeting_agent() -> Agent[MeetingAgentDeps, str]:
     """Create a meeting processing agent.
@@ -214,7 +238,7 @@ Use this context when setting due dates for action items."""
     @agent.tool
     async def create_task_summary(
         ctx: RunContext[MeetingAgentDeps],
-        input_data: TaskSummaryInput  # The LLM fills this out!
+        input_data: TaskSummaryInput,  # The LLM fills this out!
     ) -> str:
         """Create a task summary from meeting content.
 
@@ -227,7 +251,7 @@ Use this context when setting due dates for action items."""
             ctx: RunContext with dependencies
             input_data: Structured meeting summary (LLM fills this out)
         """
-        print(f"\n[TOOL CALLED] create_task_summary")
+        print("\n[TOOL CALLED] create_task_summary")
         print(f"  Meeting: {input_data.meeting_title}")
         print(f"  Action items: {len(input_data.action_items)}")
 
@@ -260,6 +284,7 @@ Use this context when setting due dates for action items."""
 # ModelResponse messages.
 # =============================================================================
 
+
 def extract_tool_calls(result: Any) -> list[dict[str, Any]]:
     """Extract tool calls from an agent result.
 
@@ -278,10 +303,12 @@ def extract_tool_calls(result: Any) -> list[dict[str, Any]]:
                     if isinstance(args, str):
                         args = json.loads(args)
 
-                    tool_calls.append({
-                        "tool_name": part.tool_name,
-                        "arguments": args,
-                    })
+                    tool_calls.append(
+                        {
+                            "tool_name": part.tool_name,
+                            "arguments": args,
+                        }
+                    )
 
     return tool_calls
 
@@ -289,6 +316,7 @@ def extract_tool_calls(result: Any) -> list[dict[str, Any]]:
 # =============================================================================
 # DEMO: The Full Pattern in Action
 # =============================================================================
+
 
 def demo_full_pattern():
     """Demonstrate the complete pattern."""
@@ -300,7 +328,7 @@ def demo_full_pattern():
     agent = create_meeting_agent()
     deps = create_deps()
 
-    print(f"\nDependencies created:")
+    print("\nDependencies created:")
     print(f"  Current date: {deps.current_date}")
     print(f"  Current day: {deps.current_day}")
     print(f"  One week from now: {deps.one_week_from_now}")
@@ -350,7 +378,7 @@ def demo_full_pattern():
     for tr in deps.tool_results:
         print(f"  Tool: {tr['tool']}")
         print(f"  Status: {tr['status']}")
-        data = tr['data']
+        data = tr["data"]
         print(f"  Meeting: {data['meeting_title']}")
         print(f"  Actions: {len(data['action_items'])} items")
 
@@ -359,6 +387,13 @@ def demo_full_pattern():
     print(f"\nTool calls extracted from messages ({len(tool_calls)}):")
     for tc in tool_calls:
         print(f"  {tc['tool_name']}: {list(tc['arguments'].keys())}")
+
+    # Explain what TestModel does
+    print("\n" + "-" * 60)
+    print("💡 NOTE: TestModel fills placeholder data (meeting='a', 1 item)")
+    print("   The STRUCTURE works: tools called, deps injected, results accumulated.")
+    print("   To see real extraction, check out backend/agent.py")
+    print("-" * 60)
 
 
 if __name__ == "__main__":
