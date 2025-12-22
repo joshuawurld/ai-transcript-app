@@ -52,6 +52,7 @@ from token_usage import TokenUsage, extract_pydantic_usage, log_token_usage
 GITHUB_MCP_URL = "https://api.githubcopilot.com/mcp/"
 TRANSCRIPT_APP_LABEL = "transcript-app"
 MAX_ITERATIONS = 10  # Higher limit since agent does more work now
+MAX_TOOL_CALLS_PER_ITERATION = 15  # Prevent runaway tool calls within a single agent.run()
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 SYSTEM_PROMPT = (PROMPTS_DIR / "issue_reviewer.txt").read_text().strip()
@@ -81,6 +82,8 @@ class IssueReviewDeps:
     # Tracking for the agentic loop
     issues_reviewed: list[dict] = field(default_factory=list)
     is_fully_complete: bool = False  # True when agent has reviewed ALL issues
+    # Cost control: limit tool calls per iteration
+    tool_calls_this_iteration: int = 0
 
 
 # =============================================================================
@@ -136,6 +139,16 @@ def _create_issue_review_agent() -> Agent[IssueReviewDeps, str]:
         Returns:
             Result from the MCP tool
         """
+        # Enforce tool call limit per iteration
+        ctx.deps.tool_calls_this_iteration += 1
+        if ctx.deps.tool_calls_this_iteration > MAX_TOOL_CALLS_PER_ITERATION:
+            print(f"\n    ⚠️  [LIMIT] Tool call limit reached ({MAX_TOOL_CALLS_PER_ITERATION}/iteration)")
+            return (
+                f"TOOL CALL LIMIT REACHED ({MAX_TOOL_CALLS_PER_ITERATION} calls this iteration). "
+                "You must now either call record_issue_reviewed/finish_all_reviews, "
+                "or provide a text response to continue in the next iteration."
+            )
+
         session = ctx.deps.mcp_session
 
         # Auto-inject owner/repo if not provided
@@ -144,7 +157,8 @@ def _create_issue_review_agent() -> Agent[IssueReviewDeps, str]:
         if "repo" not in arguments:
             arguments["repo"] = ctx.deps.repo
 
-        print("\n    ┌─────────────────────────────────────────────────")
+        call_num = ctx.deps.tool_calls_this_iteration
+        print(f"\n    ┌─────────────────────────────────────────────────  [{call_num}/{MAX_TOOL_CALLS_PER_ITERATION}]")
         print(f"    │ [MCP TOOL] {tool_name}")
         print("    ├─────────────────────────────────────────────────")
 
@@ -333,8 +347,13 @@ async def _run_autonomous_loop(
         if deps.is_fully_complete:
             break
 
+        # Reset tool call counter for this iteration
+        deps.tool_calls_this_iteration = 0
+
         if attempt > 0:
             prompt = _build_continuation_prompt(len(deps.issues_reviewed))
+
+        print(f"\n[ITERATION {attempt + 1}/{MAX_ITERATIONS}] Tool call limit: {MAX_TOOL_CALLS_PER_ITERATION}")
 
         try:
             result = await agent.run(prompt, deps=deps)
