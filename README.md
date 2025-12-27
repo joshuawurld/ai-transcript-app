@@ -19,13 +19,13 @@ AI-powered voice transcription with Whisper and LLM cleaning. Browser-based reco
 
 This repository uses checkpoint branches to progressively teach AI engineering concepts:
 
-| Branch | Description | Builds On | Learning Resource |
-|--------|-------------|-----------|-------------------|
-| `main` | Complete transcript app with Whisper + LLM cleaning (runs fully locally, beginner friendly) | — | [YouTube Tutorial](https://youtu.be/WUo5tKg2lnE) |
-| `checkpoint-1-fundamentals` | Exercise generation system for learning Python/TypeScript fundamentals | — | [Classroom](https://aiengineer.community/join) |
-| `checkpoint-agentic-openrouter` | Agentic workflow with autonomous tool selection | `main` | [Classroom](https://aiengineer.community/join) |
-| `checkpoint-pydanticai-openrouter` | PydanticAI framework for structured agent development | `checkpoint-agentic-openrouter` | [Classroom](https://aiengineer.community/join) |
-| `checkpoint-rest-mcp-openrouter` | MCP integration with REST API and GitHub Issues | `checkpoint-pydanticai-openrouter` | [Classroom](https://aiengineer.community/join) |
+| Branch                             | Description                                                                                 | Builds On                          | Learning Resource                                |
+| ---------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------ |
+| `main`                             | Complete transcript app with Whisper + LLM cleaning (runs fully locally, beginner friendly) | —                                  | [YouTube Tutorial](https://youtu.be/WUo5tKg2lnE) |
+| `checkpoint-1-fundamentals`        | Exercise generation system for learning Python/TypeScript fundamentals                      | —                                  | [Classroom](https://aiengineer.community/join)   |
+| `checkpoint-agentic-openrouter`    | Agentic workflow with autonomous tool selection                                             | `main`                             | [Classroom](https://aiengineer.community/join)   |
+| `checkpoint-pydanticai-openrouter` | PydanticAI framework for structured agent development                                       | `checkpoint-agentic-openrouter`    | [Classroom](https://aiengineer.community/join)   |
+| `checkpoint-rest-mcp-openrouter`   | MCP integration with REST API and GitHub Issues                                             | `checkpoint-pydanticai-openrouter` | [Classroom](https://aiengineer.community/join)   |
 
 > **Why "openrouter" in branch names?** These branches use [OpenRouter](https://openrouter.ai/) to access powerful cloud models that reliably support tool/function calling. Small local models struggle with agentic workflows.
 
@@ -90,6 +90,40 @@ VS Code automatically:
 4. Creates `backend/.env` with working defaults
 
 Skip to [Running the App](#running-the-app).
+
+---
+
+### ☁️ GitHub Codespaces (No Powerful PC Required)
+
+**Don't have a powerful PC?** GitHub Codespaces provides cloud-based development environments that work with this project's devcontainer.
+
+#### 1. Create a Codespace
+
+- Go to the [repository on GitHub](https://github.com/AI-Engineer-Skool/local-ai-transcript-app)
+- Click the green **"Code"** button → **"Codespaces"** tab → **"Create codespace on main"**
+- The devcontainer enforces at least **8-core / 32GB RAM**.
+- Wait ~5-10 minutes for initial setup
+
+#### 2. Access the App
+
+The devcontainer automatically configures everything. Once ready:
+
+- Ports are auto-forwarded (you'll see notifications for ports 3000, 8000, 11434)
+- Click the port 3000 link or go to the **"Ports"** tab to access the frontend
+
+#### 3. For Localhost-Dependent Code
+
+If you need true `localhost` access (some code expects `localhost:8000`):
+
+1. Install the [GitHub Codespaces extension](https://marketplace.visualstudio.com/items?itemName=GitHub.codespaces) in VS Code Desktop
+2. Connect to your running Codespace from VS Code Desktop
+3. Ports will forward to your actual `localhost`
+
+> **💡 Tip:** Stop your Codespace when not in use to conserve free hours. Go to [github.com/codespaces](https://github.com/codespaces) to manage active instances.
+
+> **📺 Video Guide:** Watch the [GitHub Codespaces setup tutorial](https://youtu.be/KkV1O-rXntM) for a walkthrough.
+
+> **🔄 Other Platforms:** Any cloud platform supporting devcontainers (Gitpod, DevPod, etc.) can also be used with this repository's `.devcontainer` configuration.
 
 ---
 
