@@ -67,7 +67,7 @@ Skip to [Running the App](#running-the-app).
 
 - Go to the [repository on GitHub](https://github.com/AI-Engineer-Skool/local-ai-transcript-app)
 - Click the green **"Code"** button → **"Codespaces"** tab → **"Create codespace on main"**
-- The devcontainer enforces at least **8-core / 32GB RAM**.
+- The devcontainer enforces at least **4-core**, but if you can select more cores and RAM please do so.
 - Wait ~5-10 minutes for initial setup
 
 #### 2. Access the App
