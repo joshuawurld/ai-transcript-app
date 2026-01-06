@@ -54,7 +54,7 @@ This branch provides an AI-assisted learning system for programming fundamentals
 
 - Go to the [repository on GitHub](https://github.com/AI-Engineer-Skool/local-ai-transcript-app)
 - Click **"Code"** → **"Codespaces"** → **"Create codespace on checkpoint-1-fundamentals"**
-- The devcontainer enforces at least **8-core / 32GB RAM**
+- The devcontainer enforces at least **4-core**, but if you can select more cores and RAM please do so
 
 > **📺 Video Guide:** [GitHub Codespaces setup tutorial](https://youtu.be/KkV1O-rXntM)
 >
